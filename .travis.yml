@@ -17,7 +17,7 @@ env:
 # Note: the distinction between `before_install` and `install` is not
 #       important.
 before_install:
- - echo "constraints: aeson==$AESONVER" > cabal.config
+ - "echo \"constraints: aeson==$AESONVER\" > cabal.config"
  - travis_retry sudo add-apt-repository -y ppa:hvr/ghc
  - travis_retry sudo apt-get update
  - travis_retry sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER
