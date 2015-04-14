@@ -22,17 +22,16 @@ module Web.BowerJson
   ) where
 
 import Control.Applicative
+import Control.Monad
 import Control.Category ((>>>))
 import Data.List
 import Data.Char
-import Data.Map (Map)
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as B
-import qualified Data.HashMap.Strict as HashMap
 import Data.Aeson
 import qualified Data.Aeson.Types as Aeson
-
-import Web.BowerJson.Utils
+import qualified Data.HashMap.Strict as HashMap
 
 -- | A data type representing the data stored in a bower.json package manifest
 -- file.
@@ -47,9 +46,9 @@ data BowerJson = BowerJson
   , bowerAuthors         :: [Author]
   , bowerHomepage        :: Maybe String
   , bowerRepository      :: Maybe Repository
-  , bowerDependencies    :: Map PackageName VersionRange
-  , bowerDevDependencies :: Map PackageName VersionRange
-  , bowerResolutions     :: Map PackageName Version
+  , bowerDependencies    :: [(PackageName, VersionRange)]
+  , bowerDevDependencies :: [(PackageName, VersionRange)]
+  , bowerResolutions     :: [(PackageName, Version)]
   , bowerPrivate         :: Bool
   }
   deriving (Show, Eq, Ord)
@@ -58,19 +57,19 @@ instance FromJSON BowerJson where
   parseJSON =
     withObject "BowerJson" $ \o ->
       BowerJson <$> (o .: "name" >>= parsePackageName)
-                <*> o .:?  "description"
-                <*> o .:?  "main"             .!= []
-                <*> o .:?  "moduleType"       .!= []
-                <*> o .:?  "licence"          .!= []
-                <*> o .:?  "ignore"           .!= []
-                <*> o .:?  "keywords"         .!= []
-                <*> o .:?  "authors"          .!= []
-                <*> o .:?  "homepage"
-                <*> o .:?  "repository"
-                <*> o `mapWithArbitraryKeys` "dependencies"
-                <*> o `mapWithArbitraryKeys` "devDependencies"
-                <*> o `mapWithArbitraryKeys` "resolutions"
-                <*> o .:?  "private"          .!= False
+                <*> o .:? "description"
+                <*> o .:? "main"             .!= []
+                <*> o .:? "moduleType"       .!= []
+                <*> o .:? "licence"          .!= []
+                <*> o .:? "ignore"           .!= []
+                <*> o .:? "keywords"         .!= []
+                <*> o .:? "authors"          .!= []
+                <*> o .:? "homepage"
+                <*> o .:? "repository"
+                <*> parseAssocList o "dependencies"
+                <*> parseAssocList o "devDependencies"
+                <*> parseAssocList o "resolutions"
+                <*> o .:? "private"          .!= False
     where
     liftMaybe :: String -> (a -> Maybe b) -> a -> Aeson.Parser b
     liftMaybe ty f =
@@ -79,9 +78,19 @@ instance FromJSON BowerJson where
     parsePackageName :: String -> Aeson.Parser PackageName
     parsePackageName = liftMaybe "PackageName" mkPackageName
 
-    mapWithArbitraryKeys o' field =
-      (o' .:? field .!= Object HashMap.empty)
-        >>= parseWithArbitraryKeys parsePackageName
+    parseAssocList :: FromJSON v =>
+      Aeson.Object -> Text -> Aeson.Parser [(PackageName, v)]
+    parseAssocList o k = 
+      o .:? k .!= HashMap.empty
+        >>= assocListFromObject (parsePackageName . T.unpack)
+
+assocListFromObject :: FromJSON v =>
+  (Text -> Aeson.Parser a) ->
+  Aeson.Object ->
+  Aeson.Parser [(a,v)]
+assocListFromObject parseKey o = do
+  let xs = HashMap.toList o
+  mapM (\(k, v) -> (,) <$> parseKey k <*> parseJSON v) xs
 
 -- | Read and attempt to decode a bower.json file.
 decodeFile :: FilePath -> IO (Either String BowerJson)
@@ -123,6 +132,15 @@ mkPackageName str
       , length >>> (<= 50)
       ]
   isJustAnd = maybe False
+
+headMay :: [a] -> Maybe a
+headMay [] = Nothing
+headMay (x:_) = Just x
+
+lastMay :: [a] -> Maybe a
+lastMay [] = Nothing
+lastMay [x] = Just x
+lastMay (_:xs) = lastMay xs
 
 -- | See: <https://github.com/bower/bower.json-spec#moduletype>
 data ModuleType
@@ -174,6 +192,28 @@ instance FromJSON Author where
     (homepage, s2) = takeDelim "(" ")" s1
   parseJSON v =
     Aeson.typeMismatch "Author" v
+
+-- | Given a prefix and a suffix, go through the supplied list, attempting
+-- to extract one string from the list which has the given prefix and suffix,
+-- All other strings in the list are returned as the second component of the
+-- tuple.
+takeDelim :: String -> String -> [String] -> (Maybe String, [String])
+takeDelim start end = foldr go (Nothing, [])
+  where
+  go str (Just x, strs) =
+    (Just x, str : strs)
+  go str (Nothing, strs) =
+    case stripWrapper start end str of
+      Just str' -> (Just str', strs)
+      Nothing   -> (Nothing, str : strs)
+
+-- | Like stripPrefix, but strips a suffix as well.
+stripWrapper :: String -> String -> String -> Maybe String
+stripWrapper start end =
+  stripPrefix start
+    >>> fmap reverse
+    >=> stripPrefix (reverse end)
+    >>> fmap reverse
 
 newtype Version
   = Version { runVersion :: String }

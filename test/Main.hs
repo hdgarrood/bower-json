@@ -7,7 +7,6 @@ import Control.Monad
 import Data.Monoid
 import Data.Aeson
 import Data.Maybe
-import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
 
 import Web.BowerJson
@@ -71,13 +70,13 @@ authorTests =
 
 optionalKeyTests :: [TestTree]
 optionalKeyTests =
-  [ testCase "Missing keys should become empty maps/lists, missing private key means not private" $ do
+  [ testCase "Missing keys should become empty lists, missing private key means not private" $ do
       Just basic @=? decode "{\"name\": \"test-package\"}"
 
-  , testCase "Empty maps should remain as empty maps" $ do
+  , testCase "Empty objects should turn into empty lists" $ do
       Just basic @=? decode "{\"name\": \"test-package\", \"dependencies\": {}}"
 
-  , testCase "Maps with values should be parsed" $ do
+  , testCase "Nonempty objects should be parsed" $ do
       Just basicWithDeps @=?
         decode "{\"name\": \"test-package\", \"dependencies\": {\"dependency-package\": \">= 1.0\"}}"
 
@@ -91,6 +90,6 @@ optionalKeyTests =
   where
   pkgName = fromJust (mkPackageName "test-package")
   depPkgName = fromJust (mkPackageName "dependency-package")
-  basic = BowerJson pkgName Nothing [] [] [] [] [] [] Nothing Nothing M.empty M.empty M.empty False
-  basicWithDeps = basic { bowerDependencies = M.fromList [(depPkgName, VersionRange ">= 1.0")] }
+  basic = BowerJson pkgName Nothing [] [] [] [] [] [] Nothing Nothing [] [] [] False
+  basicWithDeps = basic { bowerDependencies = [(depPkgName, VersionRange ">= 1.0")] }
   basicWithModuleType = basic { bowerModuleType = [AMD] }
