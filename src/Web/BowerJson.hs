@@ -11,19 +11,13 @@
 module Web.BowerJson where
 
 import Control.Applicative
-import Control.Monad
 import Control.Category ((>>>))
-import Data.Maybe
-import Data.List
 import Data.Char
 import Data.Map (Map)
-import qualified Data.Map as M
-import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.HashMap.Strict as HashMap
 import Data.Aeson
 import qualified Data.Aeson.Types as Aeson
-import System.FilePath
 
 import Web.BowerJson.Utils
 
@@ -155,23 +149,8 @@ instance FromJSON Author where
     where
     (email, s1)    = takeDelim "<" ">" (words (T.unpack t))
     (homepage, s2) = takeDelim "(" ")" s1
-
-    takeDelim :: String -> String -> [String] -> (Maybe String, [String])
-    takeDelim start end = foldr go (Nothing, [])
-      where
-      go str (Just x, strs) =
-        (Just x, str : strs)
-      go str (Nothing, strs) =
-        case extractInside start end str of
-          Just str' -> (Just str', strs)
-          Nothing   -> (Nothing, str : strs)
-
-    extractInside :: String -> String -> String -> Maybe String
-    extractInside start end =
-      stripPrefix start
-        >>> fmap reverse
-        >=> stripPrefix end
-        >>> fmap reverse
+  parseJSON v =
+    Aeson.typeMismatch "Author" v
 
 newtype Version
   = Version { runVersion :: String }
