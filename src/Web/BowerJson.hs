@@ -73,8 +73,8 @@ instance FromJSON BowerJson where
                 <*> o .:?  "private"          .!= False
     where
     liftMaybe :: String -> (a -> Maybe b) -> a -> Aeson.Parser b
-    liftMaybe msg f =
-      maybe (fail ("unable to parse a value of type: " ++ msg)) return . f
+    liftMaybe ty f =
+      maybe (fail ("unable to parse a value of type: " ++ ty)) return . f
 
     parsePackageName :: String -> Aeson.Parser PackageName
     parsePackageName = liftMaybe "PackageName" mkPackageName
