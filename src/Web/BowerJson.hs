@@ -115,6 +115,9 @@ mkPackageName str
       , all (\c -> isLower c || isDigit c || c `elem` dashOrDot)
       , headMay >>> isJustAnd (`notElem` dashOrDot)
       , lastMay >>> isJustAnd (`notElem` dashOrDot)
+      , not . isInfixOf "--"
+      , not . isInfixOf ".."
+      , length >>> (<= 50)
       ]
   isJustAnd = maybe False
 
