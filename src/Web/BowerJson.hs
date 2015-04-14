@@ -13,7 +13,6 @@ module Web.BowerJson where
 import Control.Applicative
 import Control.Monad
 import Control.Category ((>>>))
-import Data.Traversable (traverse)
 import Data.Maybe
 import Data.List
 import Data.Char
@@ -21,6 +20,7 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.HashMap.Strict as HashMap
 import Data.Aeson
 import qualified Data.Aeson.Types as Aeson
 import System.FilePath
@@ -60,26 +60,21 @@ instance FromJSON BowerJson where
                 <*> o .:?  "authors"          .!= []
                 <*> o .:?  "homepage"
                 <*> o .:?  "repository"
-                <*> o .::? "dependencies"
-                <*> o .::? "devDependencies"
-                <*> o .::? "resolutions"
+                <*> o `mapWithArbitraryKeys` "dependencies"
+                <*> o `mapWithArbitraryKeys` "devDependencies"
+                <*> o `mapWithArbitraryKeys` "resolutions"
                 <*> o .:?  "private"          .!= False
     where
     liftMaybe :: String -> (a -> Maybe b) -> a -> Aeson.Parser b
-    liftMaybe msg f = maybe (fail msg) return . f
+    liftMaybe msg f =
+      maybe (fail ("unable to parse a value of type: " ++ msg)) return . f
 
+    parsePackageName :: String -> Aeson.Parser PackageName
     parsePackageName = liftMaybe "PackageName" mkPackageName
 
-    (.::?) o' field =
-      (o' .:? field .!= Object mempty)
+    mapWithArbitraryKeys o' field =
+      (o' .:? field .!= Object HashMap.empty)
         >>= parseWithArbitraryKeys parsePackageName
-
-parseWithArbitraryKeys :: (Ord a, FromJSON v) =>
-  (String -> Aeson.Parser a) -> Value -> Aeson.Parser (Map a v)
-parseWithArbitraryKeys parseKey v' = do
-  list <- M.toList <$> parseJSON v'
-  list' <- traverse (\(k, v) -> (,v) <$> parseKey k) list
-  return (M.fromList list')
 
 ------------------
 -- Package names
