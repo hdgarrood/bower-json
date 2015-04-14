@@ -13,8 +13,8 @@ cabal-version:       >=1.10
 library
   exposed-modules:   Web.BowerJson
   other-modules:     Web.BowerJson.Utils
-  build-depends:     base >=4.7 && <4.9
-                   , aeson >= 0.8 && <0.9
+  build-depends:     base >=4 && <5
+                   , aeson >=0.6
                    , filepath
                    , containers
                    , unordered-containers
