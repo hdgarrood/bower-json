@@ -33,6 +33,7 @@ test-suite tests
                    , bower-json -any
                    , aeson -any
                    , bytestring -any
+                   , containers -any
                    , tasty -any
                    , tasty-hunit -any
   ghc-options:       -Wall

@@ -6,6 +6,8 @@ import Test.Tasty.HUnit
 import Control.Monad
 import Data.Monoid
 import Data.Aeson
+import Data.Maybe
+import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as B
 
 import Web.BowerJson
@@ -24,7 +26,7 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "tests"
   [ testGroup "FromJSON Author instance" authorTests
-
+  , testGroup "optional keys" optionalKeyTests
   ]
 
 authorTests :: [TestTree]
@@ -66,3 +68,29 @@ authorTests =
   authorWithEmail = Just (Author "Harry Garrood" (Just "harry@garrood.me") Nothing)
   authorWithHomepage = Just (Author "Harry Garrood" Nothing (Just "http://harry.garrood.me"))
   authorWithBoth = Just (Author "Harry Garrood" (Just "harry@garrood.me") (Just "http://harry.garrood.me"))
+
+optionalKeyTests :: [TestTree]
+optionalKeyTests =
+  [ testCase "Missing keys should become empty maps/lists, missing private key means not private" $ do
+      Just basic @=? decode "{\"name\": \"test-package\"}"
+
+  , testCase "Empty maps should remain as empty maps" $ do
+      Just basic @=? decode "{\"name\": \"test-package\", \"dependencies\": {}}"
+
+  , testCase "Maps with values should be parsed" $ do
+      Just basicWithDeps @=?
+        decode "{\"name\": \"test-package\", \"dependencies\": {\"dependency-package\": \">= 1.0\"}}"
+
+  , testCase "Empty arrays should be parsed as empty lists" $ do
+      Just basic @=? decode "{\"name\": \"test-package\", \"main\": []}"
+
+  , testCase "Arrays with values should be parsed" $ do
+      Just basicWithModuleType @=?
+        decode "{\"name\": \"test-package\", \"moduleType\": [\"amd\"]}"
+  ]
+  where
+  pkgName = fromJust (mkPackageName "test-package")
+  depPkgName = fromJust (mkPackageName "dependency-package")
+  basic = BowerJson pkgName Nothing [] [] [] [] [] [] Nothing Nothing M.empty M.empty M.empty False
+  basicWithDeps = basic { bowerDependencies = M.fromList [(depPkgName, VersionRange ">= 1.0")] }
+  basicWithModuleType = basic { bowerModuleType = [AMD] }
