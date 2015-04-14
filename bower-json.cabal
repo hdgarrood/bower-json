@@ -22,8 +22,6 @@ library
   exposed-modules:   Web.BowerJson
   build-depends:     base >=4 && <5
                    , aeson >=0.6.1.0
-                   , filepath
-                   , containers
                    , unordered-containers
                    , text
                    , bytestring
@@ -40,7 +38,6 @@ test-suite tests
                    , bower-json -any
                    , aeson -any
                    , bytestring -any
-                   , containers -any
                    , tasty -any
                    , tasty-hunit -any
   ghc-options:       -Wall
