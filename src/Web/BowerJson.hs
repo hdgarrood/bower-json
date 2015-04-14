@@ -6,12 +6,23 @@
 -- with a parser and related functions.
 --
 -- This code is based on the specification at
---   <https://github.com/bower/bower.json-spec>
+-- <https://github.com/bower/bower.json-spec>.
 
-module Web.BowerJson where
+module Web.BowerJson
+  ( BowerJson(..)
+  , PackageName
+  , runPackageName
+  , mkPackageName
+  , ModuleType(..)
+  , Author(..)
+  , Repository(..)
+  , VersionRange(..)
+  , Version(..)
+  ) where
 
 import Control.Applicative
 import Control.Category ((>>>))
+import Data.List
 import Data.Char
 import Data.Map (Map)
 import qualified Data.Text as T
@@ -75,8 +86,11 @@ instance FromJSON BowerJson where
 
 -- | A valid package name for a Bower package.
 newtype PackageName
-  = PackageName { runPackageName :: String }
+  = PackageName String
   deriving (Show, Eq, Ord)
+
+runPackageName :: PackageName -> String
+runPackageName (PackageName s) = s
 
 instance FromJSON PackageName where
   parseJSON =
@@ -85,6 +99,9 @@ instance FromJSON PackageName where
         Just pkgName -> return pkgName
         Nothing -> fail ("unable to validate package name: " ++ show text)
 
+-- | A smart constructor for a PackageName. It ensures that the package name
+-- satisfies the restrictions described at
+-- <https://github.com/bower/bower.json-spec#name>.
 mkPackageName :: String -> Maybe PackageName
 mkPackageName str
   | satisfyAll predicates str = Just (PackageName str)
