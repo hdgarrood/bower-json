@@ -87,9 +87,6 @@ instance FromJSON BowerJson where
 decodeFile :: FilePath -> IO (Either String BowerJson)
 decodeFile = fmap eitherDecode . B.readFile
 
-------------------
--- Package names
-
 -- | A valid package name for a Bower package.
 newtype PackageName
   = PackageName String
