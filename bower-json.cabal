@@ -22,7 +22,7 @@ library
   exposed-modules:   Web.BowerJson
   other-modules:     Web.BowerJson.Utils
   build-depends:     base >=4 && <5
-                   , aeson >=0.6
+                   , aeson >=0.6.1.0
                    , filepath
                    , containers
                    , unordered-containers
