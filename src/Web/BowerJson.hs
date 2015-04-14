@@ -10,6 +10,7 @@
 
 module Web.BowerJson
   ( BowerJson(..)
+  , decodeFile
   , PackageName
   , runPackageName
   , mkPackageName
@@ -26,6 +27,7 @@ import Data.List
 import Data.Char
 import Data.Map (Map)
 import qualified Data.Text as T
+import qualified Data.ByteString.Lazy as B
 import qualified Data.HashMap.Strict as HashMap
 import Data.Aeson
 import qualified Data.Aeson.Types as Aeson
@@ -80,6 +82,10 @@ instance FromJSON BowerJson where
     mapWithArbitraryKeys o' field =
       (o' .:? field .!= Object HashMap.empty)
         >>= parseWithArbitraryKeys parsePackageName
+
+-- | Read and attempt to decode a bower.json file.
+decodeFile :: FilePath -> IO (Either String BowerJson)
+decodeFile = fmap eitherDecode . B.readFile
 
 ------------------
 -- Package names
