@@ -50,7 +50,7 @@ data BowerJson = BowerJson
   , bowerDependencies    :: Map PackageName VersionRange
   , bowerDevDependencies :: Map PackageName VersionRange
   , bowerResolutions     :: Map PackageName Version
-  , isPrivate            :: Bool
+  , bowerPrivate         :: Bool
   }
   deriving (Show, Eq, Ord)
 
