@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TupleSections #-}
 
 -- | A data type representing the Bower.json package description file, together
