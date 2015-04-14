@@ -17,8 +17,10 @@ library
                    , aeson >= 0.8 && <0.9
                    , filepath
                    , containers
+                   , unordered-containers
                    , text
                    , bytestring
 
+  ghc-options:       -Wall
   hs-source-dirs:    src
   default-language:  Haskell2010
