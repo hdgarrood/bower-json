@@ -1,14 +1,22 @@
 name:                bower-json
 version:             0.1.0.0
-synopsis:            Parse, query, and modify bower.json package description files.
-homepage:            https://github.com/hdgarrood/bower-json
+synopsis:            bower.json from Haskell
 license:             MIT
 license-file:        LICENSE
 author:              Harry Garrood
 maintainer:          harry@garrood.me
+homepage:            https://github.com/hdgarrood/bower-json
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
+
+description:
+  This package provides a data type and FromJSON instance for bower.json
+  package description files.
+
+source-repository head
+  type:     git
+  location: https://github.com/hdgarrood/bower-json
 
 library
   exposed-modules:   Web.BowerJson
