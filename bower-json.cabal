@@ -11,8 +11,10 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 description:
-  This package provides a data type and FromJSON instance for bower.json
-  package description files.
+  Bower is a package manager for the web (see <http://bower.io>).
+
+  This package provides a data type and FromJSON instance for Bower's package
+  manifest file, bower.json.
 
 source-repository head
   type:     git
