@@ -35,7 +35,7 @@ script:
  - cabal configure --enable-tests -v2
 
  # this builds all libraries and executables, including tests
- - cabal build --ghc-option -Werror
+ - cabal build
 
  - cabal test
  - cabal check
