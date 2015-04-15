@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | A data type representing the Bower.json package description file, together
 -- with a parser and related functions.
@@ -34,6 +35,12 @@ import qualified Data.HashMap.Strict as HashMap
 
 -- | A data type representing the data stored in a bower.json package manifest
 -- file.
+--
+-- Note that the 'ToJSON' / 'FromJSON' instances don't exactly match; for
+-- example, it is not always the case that decoding from JSON and then encoding
+-- to JSON will give you the exact same JSON that you started with. However, if
+-- you start with a BowerJson value, encode to JSON, and then decode, you
+-- should always get the same value back.
 data BowerJson = BowerJson
   { bowerName            :: PackageName
   , bowerDescription     :: Maybe String
@@ -91,6 +98,42 @@ assocListFromObject parseKey o = do
   let xs = HashMap.toList o
   mapM (\(k, v) -> (,) <$> parseKey k <*> parseJSON v) xs
 
+instance ToJSON BowerJson where
+  toJSON BowerJson{..} =
+    object $ concat
+      [ [ "name" .= bowerName ]
+      , maybePair "description" bowerDescription
+      , maybeArrayPair "main" bowerMain
+      , maybeArrayPair "moduleType" bowerModuleType
+      , maybeArrayPair "licence" bowerLicence
+      , maybeArrayPair "ignore" bowerIgnore
+      , maybeArrayPair "keywords" bowerKeywords
+      , maybeArrayPair "authors" bowerAuthors
+      , maybePair "homepage" bowerHomepage
+      , maybePair "repository" bowerRepository
+      , assoc "dependencies" bowerDependencies
+      , assoc "devDependencies" bowerDevDependencies
+      , assoc "resolutions" bowerResolutions
+      , if bowerPrivate then [ "private" .= True ] else []
+      ]
+
+      where
+      asText = T.pack . runPackageName
+
+      assoc :: ToJSON a => Text -> [(PackageName, a)] -> [Aeson.Pair]
+      assoc = maybeArrayAssocPair asText
+
+maybePair :: ToJSON a => Text -> Maybe a -> [Aeson.Pair]
+maybePair key = maybe [] (\val -> [key .= val])
+
+maybeArrayPair :: ToJSON a => Text -> [a] -> [Aeson.Pair]
+maybeArrayPair _   [] = []
+maybeArrayPair key xs = [key .= xs]
+
+maybeArrayAssocPair :: ToJSON b => (a -> Text) -> Text -> [(a,b)] -> [Aeson.Pair]
+maybeArrayAssocPair _ _   [] = []
+maybeArrayAssocPair f key xs = [key .= object (map (\(k, v) -> f k .= v) xs)]
+
 -- | Read and attempt to decode a bower.json file.
 decodeFile :: FilePath -> IO (Either String BowerJson)
 decodeFile = fmap eitherDecode . B.readFile
@@ -109,6 +152,9 @@ instance FromJSON PackageName where
       case mkPackageName (T.unpack text) of
         Just pkgName -> return pkgName
         Nothing -> fail ("unable to validate package name: " ++ show text)
+
+instance ToJSON PackageName where
+  toJSON = toJSON . runPackageName
 
 -- | A smart constructor for a PackageName. It ensures that the package name
 -- satisfies the restrictions described at
@@ -160,6 +206,9 @@ instance FromJSON ModuleType where
         Just t' -> return t'
         Nothing -> fail ("invalid module type: " ++ show t)
 
+instance ToJSON ModuleType where
+  toJSON = toJSON . map toLower . show
+
 data Repository = Repository
   { repositoryUrl :: String
   , repositoryType :: String
@@ -171,6 +220,12 @@ instance FromJSON Repository where
     withObject "Repository" $ \o ->
       Repository <$> o .: "url"
                  <*> o .: "type"
+
+instance ToJSON Repository where
+  toJSON Repository{..} =
+    object [ "url" .= repositoryUrl
+           , "type" .= repositoryType
+           ]
 
 data Author = Author
   { authorName     :: String
@@ -191,6 +246,13 @@ instance FromJSON Author where
     (homepage, s2) = takeDelim "(" ")" s1
   parseJSON v =
     Aeson.typeMismatch "Author" v
+
+instance ToJSON Author where
+  toJSON Author{..} =
+    object $
+      [ "name" .= authorName ] ++
+        maybePair "email" authorEmail ++
+        maybePair "homepage" authorHomepage
 
 -- | Given a prefix and a suffix, go through the supplied list, attempting
 -- to extract one string from the list which has the given prefix and suffix,
@@ -222,6 +284,9 @@ instance FromJSON Version where
   parseJSON =
     withText "Version" (pure . Version . T.unpack)
 
+instance ToJSON Version where
+  toJSON = toJSON . runVersion
+
 newtype VersionRange
   = VersionRange { runVersionRange :: String }
   deriving (Show, Eq, Ord)
@@ -229,3 +294,6 @@ newtype VersionRange
 instance FromJSON VersionRange where
   parseJSON =
     withText "VersionRange" (pure . VersionRange . T.unpack)
+
+instance ToJSON VersionRange where
+  toJSON = toJSON . runVersionRange

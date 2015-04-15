@@ -38,7 +38,9 @@ test-suite tests
                    , bower-json -any
                    , aeson -any
                    , bytestring -any
+                   , text -any
+                   , unordered-containers -any
                    , tasty -any
                    , tasty-hunit -any
-  ghc-options:       -Wall
+  ghc-options:       -Wall -fno-warn-missing-signatures
   default-language:  Haskell2010

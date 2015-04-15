@@ -26,47 +26,47 @@ tests :: TestTree
 tests = testGroup "tests"
   [ testGroup "FromJSON Author instance" authorTests
   , testGroup "optional keys" optionalKeyTests
+  , testGroup "round trips" roundTripTests
   ]
 
 authorTests :: [TestTree]
 authorTests =
   [ testCase "As string without homepage/email" $ do
-      authorWithoutOptionalAttrs @=?
+      Just authorWithoutOptionalAttrs @=?
         decodeValue "\"Harry Garrood\""
 
       -- should not be sensitive to extra whitespace
-      authorWithoutOptionalAttrs @=?
+      Just authorWithoutOptionalAttrs @=?
         decodeValue "\" Harry Garrood \""
 
   , testCase "As string with homepage/email" $ do
-      authorWithEmail @=?
+      Just authorWithEmail @=?
         decodeValue "\"Harry Garrood <harry@garrood.me>\""
 
-      authorWithHomepage @=?
+      Just authorWithHomepage @=?
         decodeValue "\"Harry Garrood (http://harry.garrood.me)\""
 
-      authorWithBoth @=?
+      Just authorWithBoth @=?
         decodeValue "\"Harry Garrood <harry@garrood.me> (http://harry.garrood.me)\""
 
   , testCase "As object" $ do
-      authorWithoutOptionalAttrs @=?
+      Just authorWithoutOptionalAttrs @=?
         decode "{\"name\": \"Harry Garrood\"}"
 
-      authorWithEmail @=?
+      Just authorWithEmail @=?
         decode "{\"name\": \"Harry Garrood\", \"email\": \"harry@garrood.me\"}"
 
-      authorWithHomepage @=?
+      Just authorWithHomepage @=?
         decode "{\"name\": \"Harry Garrood\", \"homepage\": \"http://harry.garrood.me\"}"
 
-      authorWithBoth @=?
+      Just authorWithBoth @=?
         decode "{\"name\": \"Harry Garrood\", \"email\": \"harry@garrood.me\", \"homepage\": \"http://harry.garrood.me\"}"
   ]
 
-  where
-  authorWithoutOptionalAttrs = Just (Author "Harry Garrood" Nothing Nothing)
-  authorWithEmail = Just (Author "Harry Garrood" (Just "harry@garrood.me") Nothing)
-  authorWithHomepage = Just (Author "Harry Garrood" Nothing (Just "http://harry.garrood.me"))
-  authorWithBoth = Just (Author "Harry Garrood" (Just "harry@garrood.me") (Just "http://harry.garrood.me"))
+authorWithoutOptionalAttrs = Author "Harry Garrood" Nothing Nothing
+authorWithEmail = Author "Harry Garrood" (Just "harry@garrood.me") Nothing
+authorWithHomepage = Author "Harry Garrood" Nothing (Just "http://harry.garrood.me")
+authorWithBoth = Author "Harry Garrood" (Just "harry@garrood.me") (Just "http://harry.garrood.me")
 
 optionalKeyTests :: [TestTree]
 optionalKeyTests =
@@ -88,8 +88,39 @@ optionalKeyTests =
         decode "{\"name\": \"test-package\", \"moduleType\": [\"amd\"]}"
   ]
   where
-  pkgName = fromJust (mkPackageName "test-package")
-  depPkgName = fromJust (mkPackageName "dependency-package")
-  basic = BowerJson pkgName Nothing [] [] [] [] [] [] Nothing Nothing [] [] [] False
-  basicWithDeps = basic { bowerDependencies = [(depPkgName, VersionRange ">= 1.0")] }
-  basicWithModuleType = basic { bowerModuleType = [AMD] }
+
+pkgName = fromJust (mkPackageName "test-package")
+depPkgName = fromJust (mkPackageName "dependency-package")
+basic = BowerJson pkgName Nothing [] [] [] [] [] [] Nothing Nothing [] [] [] False
+basicWithDeps = basic { bowerDependencies = [(depPkgName, VersionRange ">= 1.0")] }
+basicWithModuleType = basic { bowerModuleType = [AMD] }
+
+complex =
+  basicWithDeps
+    { bowerDescription     = Just "hello, world"
+    , bowerMain            = ["foo.js"]
+    , bowerModuleType      = [Globals, Node]
+    , bowerLicence         = ["MIT"]
+    , bowerIgnore          = []
+    , bowerKeywords        = ["purescript"]
+    , bowerAuthors         = [authorWithoutOptionalAttrs, authorWithEmail, authorWithBoth]
+    , bowerHomepage        = Nothing
+    , bowerRepository      = Just (Repository "git://github.com/hdgarrood/test-package" "git")
+    , bowerDevDependencies = []
+    , bowerResolutions     = []
+    }
+
+complexPrivate = complex { bowerPrivate = True }
+
+allBowerJsons =
+  [ ("basic", basic)
+  , ("basicWithDeps", basicWithDeps)
+  , ("basicWithModuleType", basicWithModuleType)
+  , ("complex", complex)
+  , ("complexPrivate", complexPrivate)
+  ]
+
+roundTripTests :: [TestTree]
+roundTripTests =
+  map (\(name, b) -> testCase name (Just b @=? decode (encode b)))
+      allBowerJsons
