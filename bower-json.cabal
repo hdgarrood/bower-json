@@ -27,6 +27,10 @@ library
                    , unordered-containers
                    , text
                    , bytestring
+                   , scientific
+                   , vector
+                   , transformers
+                   , mtl
 
   ghc-options:       -Wall
   hs-source-dirs:    src
