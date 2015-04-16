@@ -8,18 +8,19 @@
 -- This code is based on the specification at
 -- <https://github.com/bower/bower.json-spec>.
 
-module Web.BowerJson
-  ( BowerJson(..)
-  , decodeFile
-  , PackageName
-  , runPackageName
-  , mkPackageName
-  , ModuleType(..)
-  , Author(..)
-  , Repository(..)
-  , VersionRange(..)
-  , Version(..)
-  ) where
+module Web.BowerJson where
+  -- ( BowerJson(..)
+  -- , decodeFile
+  -- , PackageName
+  -- , runPackageName
+  -- , mkPackageName
+  -- , ModuleType(..)
+  -- , moduleTypes
+  -- , Author(..)
+  -- , Repository(..)
+  -- , VersionRange(..)
+  -- , Version(..)
+  -- ) where
 
 import Control.Applicative
 import Control.Monad

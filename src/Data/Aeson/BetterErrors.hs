@@ -18,18 +18,18 @@ import Control.Monad.Trans.Except
 
 import qualified Data.Aeson as A
 
-import Data.Vector (Vector, (!?))
+import Data.Vector ((!?))
 import qualified Data.Vector as V
 import Data.Scientific (Scientific)
 import qualified Data.Scientific as S
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 
 type Parse err a
   = ReaderT ParseReader (Except (ParseError err)) a
+  -- TODO: newtype, for nicer type signatures.
   --deriving (Functor, Applicative, Monad)
 
 runParse :: Parse err a -> BL.ByteString -> Either (ParseError err) a
@@ -160,6 +160,11 @@ key k p = key' (badSchema (KeyMissing k)) k p
 keyOrDefault :: Text -> a -> Parse err a -> Parse err a
 keyOrDefault k def p = key' (pure def) k p
 
+-- | Take the value corresponding to a given key in the current object, or
+-- if no property exists with that key, return Nothing .
+keyMay :: Text -> Parse err a -> Parse err (Maybe a)
+keyMay k p = keyOrDefault k Nothing (Just <$> p)
+
 key' :: Parse err a -> Text -> Parse err a -> Parse err a
 key' onMissing k p = do
   v <- asks rdrValue
@@ -182,6 +187,11 @@ nth n p = nth' (badSchema (OutOfBounds n)) n p
 nthOrDefault :: Int -> a -> Parse err a -> Parse err a
 nthOrDefault n def p =
   nth' (pure def) n p
+
+-- | Take the nth value of the current array, or if no value exists with that
+-- index, return Nothing.
+nthMay :: Int -> Parse err a -> Parse err (Maybe a)
+nthMay n p = nthOrDefault n Nothing (Just <$> p)
 
 nth' :: Parse err a -> Int -> Parse err a -> Parse err a
 nth' onMissing n p = do
@@ -218,8 +228,35 @@ eachInObject p = do
 withValue :: (A.Value -> Either err a) -> Parse err a
 withValue f = liftParse (mapLeft CustomError . f)
 
-withNull :: Either err a -> Parse err a
-withNull = either (badSchema . CustomError) return
+with :: Either err a -> Parse err a
+with = either (badSchema . CustomError) return
+
+with' :: Parse err a -> (a -> Either err b) -> Parse err b
+with' g f = g >>= with . f
+
+withText :: (Text -> Either err a) -> Parse err a
+withText = with' asText
+
+withString :: (String -> Either err a) -> Parse err a
+withString = with' asString
+
+withScientific :: (Scientific -> Either err a) -> Parse err a
+withScientific = with' asScientific
+
+withIntegral :: Integral a => (a -> Either err b) -> Parse err b
+withIntegral = with' asIntegral
+
+withRealFloat :: RealFloat a => (a -> Either err b) -> Parse err b
+withRealFloat = with' asRealFloat
+
+withBool :: (Bool -> Either err a) -> Parse err a
+withBool = with' asBool
+
+withObject :: (A.Object -> Either err a) -> Parse err a
+withObject = with' asObject
+
+withArray :: (A.Array -> Either err a) -> Parse err a
+withArray = with' asArray
 
 -----------------------
 -- Various utilities

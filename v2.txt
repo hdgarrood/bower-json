@@ -61,3 +61,11 @@ parseAuthor val = throwE (InvalidAuthor val)
 
 -- Alternative - use monoid, combine errors?
 -- Simply take rightmost?
+-- Or maybe take the one with the deepest path?
+
+
+-- convention: 
+--   asFoo :: Parse err Foo
+--   parseFoo' :: a -> Either err Foo
+--   parseFoo :: ByteString -> Either (ParseError err) Foo 
+        
