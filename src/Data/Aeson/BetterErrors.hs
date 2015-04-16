@@ -76,7 +76,7 @@ data JSONType
   | TyArray
   | TyString
   | TyNumber
-  | TyBoolean
+  | TyBool
   | TyNull
   deriving (Show, Eq, Ord)
 
@@ -85,29 +85,29 @@ jsonTypeOf (A.Object _) = TyObject
 jsonTypeOf (A.Array _)  = TyArray
 jsonTypeOf (A.String _) = TyString
 jsonTypeOf (A.Number _) = TyNumber
-jsonTypeOf (A.Bool _)   = TyBoolean
+jsonTypeOf (A.Bool _)   = TyBool
 jsonTypeOf A.Null       = TyNull
 
+-- | Lift any parsing function into the 'Parse' type.
 liftParse :: (A.Value -> Either (ErrorSpecifics err) a) -> Parse err a
-liftParse f = do
-  value <- asks rdrValue
-  case f value of
-    Right x -> return x
-    Left specifics -> badSchema specifics
+liftParse f =
+  asks rdrValue
+    >>= either badSchema return . f
 
 -- | Aborts parsing, due to an error in the structure of the JSON - that is,
--- any error other than the JSON not actually being parseable into a 'Value'.
+-- any error other than the JSON not actually being parseable into a 'A.Value'.
 badSchema :: ErrorSpecifics err -> Parse err a
 badSchema specifics = do
   path <- asks rdrPath
   throwError (BadSchema path specifics)
 
+as :: (A.Value -> Maybe a) -> JSONType -> Parse err a
+as pat ty = liftParse $ \v ->
+  maybe (Left (WrongType ty v)) Right (pat v)
+
 -- | Parse a single JSON string as 'Text'.
 asText :: Parse err Text
-asText = liftParse $ \v ->
-  case v of
-    A.String t -> Right t
-    _ -> Left (WrongType TyString v)
+asText = as patString TyString
 
 -- | Parse a single JSON string as a 'String'.
 asString :: Parse err String
@@ -115,10 +115,7 @@ asString = T.unpack <$> asText
 
 -- | Parse a single JSON number as a 'Scientific'.
 asScientific :: Parse err Scientific
-asScientific = liftParse $ \v ->
-  case v of
-    A.Number s -> Right s
-    _ -> Left (WrongType TyNumber v)
+asScientific = as patNumber TyNumber
 
 -- | Parse a single JSON number as any 'Integral' type.
 asIntegral :: Integral a => Parse err a
@@ -139,32 +136,20 @@ asRealFloat =
   floatingOrInteger = S.floatingOrInteger
 
 -- | Parse a single JSON boolean as a 'Bool'.
-asBoolean :: Parse err Bool
-asBoolean = liftParse $ \v ->
-  case v of
-    A.Bool b -> Right b
-    _ -> Left (WrongType TyBoolean v)
+asBool :: Parse err Bool
+asBool = as patBool TyBool
 
 -- | Parse a JSON object, as an 'A.Object'.
 asObject :: Parse err A.Object
-asObject = liftParse $ \v ->
-  case v of
-    A.Object obj -> Right obj
-    _ -> Left (WrongType TyObject v)
+asObject = as patObject TyObject
 
 -- | Parse a JSON array, as an 'A.Array'.
 asArray :: Parse err A.Array
-asArray = liftParse $ \v ->
-  case v of
-    A.Array arr -> Right arr
-    _ -> Left (WrongType TyArray v)
+asArray = as patArray TyArray
 
 -- | Parse a single `null` value.
 asNull :: Parse err ()
-asNull = liftParse $ \v ->
-  case v of
-    A.Null -> Right ()
-    _ -> Left (WrongType TyNull v)
+asNull = as patNull TyNull
 
 -- | Take the value corresponding to a given key in the current object.
 key :: Text -> Parse err a -> Parse err a
@@ -211,11 +196,33 @@ nth' onMissing n p = do
     _ ->
       badSchema (WrongType TyArray v)
 
+-- | Attempt to parse each value in the array with the given parser, and
+-- collect the results.
 eachInArray :: Parse err a -> Parse err [a]
 eachInArray p = do
   xs <- zip [0..] . V.toList <$> asArray
-  mapM (\(i, x) -> local (appendPath (ArrayIndex i) . setValue x) p) xs
+  forM xs $ \(i, x) ->
+    local (appendPath (ArrayIndex i) . setValue x) p
 
+-- | Attempt to parse each property value in the array with the given parser,
+-- and collect the results.
+eachInObject :: Parse err a -> Parse err [(Text, a)]
+eachInObject p = do
+  xs <- HashMap.toList <$> asObject
+  forM xs $ \(k, x) ->
+    (k,) <$> local (appendPath (ObjectKey k) . setValue x) p
+
+-- | Lifts a function attempting to validate an arbitrary JSON value into a
+-- parser. You should only use this if absolutely necessary; the other
+-- functions in this module will generally give better error reporting.
+withValue :: (A.Value -> Either err a) -> Parse err a
+withValue f = liftParse (mapLeft CustomError . f)
+
+withNull :: Either err a -> Parse err a
+withNull = either (badSchema . CustomError) return
+
+-----------------------
+-- Various utilities
 
 -- | A version of catchJust from "Control.Exception.Base", except for any
 -- instance of 'MonadError'.
@@ -230,3 +237,33 @@ catchJust p act handler = catchError act handle
     case p e of
       Nothing -> throwError e
       Just b -> handler b
+
+mapLeft :: (a -> b) -> Either a c -> Either b c
+mapLeft f (Left x) = Left (f x)
+mapLeft _ (Right y) = Right y
+
+-- Value-level patterns for json values
+
+patNull :: A.Value -> Maybe ()
+patNull A.Null = Just ()
+patNull _ = Nothing
+
+patString :: A.Value -> Maybe Text
+patString (A.String t) = Just t
+patString _ = Nothing
+
+patNumber :: A.Value -> Maybe Scientific
+patNumber (A.Number x) = Just x
+patNumber _ = Nothing
+
+patBool :: A.Value -> Maybe Bool
+patBool (A.Bool x) = Just x
+patBool _ = Nothing
+
+patObject :: A.Value -> Maybe A.Object
+patObject (A.Object obj) = Just obj
+patObject _ = Nothing
+
+patArray :: A.Value -> Maybe A.Array
+patArray (A.Array arr) = Just arr
+patArray _ = Nothing

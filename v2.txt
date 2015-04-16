@@ -58,3 +58,6 @@ parseAuthor :: A.Value -> Parse MyErr Author
 parseAuthor (A.Object obj) = ...
 parseAuthor (A.String str) = ...
 parseAuthor val = throwE (InvalidAuthor val)
+
+-- Alternative - use monoid, combine errors?
+-- Simply take rightmost?
