@@ -4,11 +4,11 @@
 
 module Data.Aeson.BetterErrors.Test where
 
-import Control.Arrow ((&&&))
 import Control.Applicative hiding ((<|>))
 import Control.Monad.Error.Class
-import Data.Aeson.BetterErrors
+import qualified Data.Text as T
 
+import Data.Aeson.BetterErrors
 import Web.BowerJson
 
 data Person = Person String Int deriving (Show)
@@ -50,18 +50,23 @@ asBowerJson =
             <*> keyOrDefault "authors"    [] (eachInArray asAuthor)
             <*> keyMay "homepage" asString
             <*> keyMay "repository" asRepository
-            <*> keyOrDefault "dependencies"    [] (assocListOf VersionRange)
-            <*> keyOrDefault "devDependencies" [] (assocListOf VersionRange)
-            <*> keyOrDefault "resolutions"     [] (assocListOf Version)
+            <*> keyOrDefault "dependencies"    [] (asAssocListOf VersionRange)
+            <*> keyOrDefault "devDependencies" [] (asAssocListOf VersionRange)
+            <*> keyOrDefault "resolutions"     [] (asAssocListOf Version)
             <*> keyOrDefault "private" False asBool
 
   where
   f g = maybe (Left "Fuck you") Right . g
-  parsePackageName = f mkPackageName
   parseModuleType = f (flip lookup moduleTypes)
 
-  assocListOf f = mapM (first (withText (parsePackageName . T.unpack))
-                       (eachInObject (pure . f))
+  parsePackageName :: String -> Either String PackageName
+  parsePackageName = f mkPackageName
+
+  asAssocListOf :: (String -> a) -> Parse String [(PackageName, a)]
+  asAssocListOf g =
+    eachInObject asString
+      >>= mapM ((\(k,v) ->
+        liftEither ((,) <$> parsePackageName (T.unpack k) <*> pure (g v))))
 
 asAuthor :: Parse String Author
 asAuthor = catchError parseAuthorString (const parseAuthorObject)

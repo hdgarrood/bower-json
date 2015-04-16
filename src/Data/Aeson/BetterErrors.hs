@@ -228,35 +228,35 @@ eachInObject p = do
 withValue :: (A.Value -> Either err a) -> Parse err a
 withValue f = liftParse (mapLeft CustomError . f)
 
-with :: Either err a -> Parse err a
-with = either (badSchema . CustomError) return
+liftEither :: Either err a -> Parse err a
+liftEither = either (badSchema . CustomError) return
 
-with' :: Parse err a -> (a -> Either err b) -> Parse err b
-with' g f = g >>= with . f
+with :: Parse err a -> (a -> Either err b) -> Parse err b
+with g f = g >>= liftEither . f
 
 withText :: (Text -> Either err a) -> Parse err a
-withText = with' asText
+withText = with asText
 
 withString :: (String -> Either err a) -> Parse err a
-withString = with' asString
+withString = with asString
 
 withScientific :: (Scientific -> Either err a) -> Parse err a
-withScientific = with' asScientific
+withScientific = with asScientific
 
 withIntegral :: Integral a => (a -> Either err b) -> Parse err b
-withIntegral = with' asIntegral
+withIntegral = with asIntegral
 
 withRealFloat :: RealFloat a => (a -> Either err b) -> Parse err b
-withRealFloat = with' asRealFloat
+withRealFloat = with asRealFloat
 
 withBool :: (Bool -> Either err a) -> Parse err a
-withBool = with' asBool
+withBool = with asBool
 
 withObject :: (A.Object -> Either err a) -> Parse err a
-withObject = with' asObject
+withObject = with asObject
 
 withArray :: (A.Array -> Either err a) -> Parse err a
-withArray = with' asArray
+withArray = with asArray
 
 -----------------------
 -- Various utilities
