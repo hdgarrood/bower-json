@@ -221,8 +221,8 @@ eachInArray p = do
 -- instance of 'MonadError'.
 catchJust :: MonadError e m
   => (e -> Maybe b) -- ^ Predicate to select exceptions
-  -> m a -- ^ Computation to run
-  -> (b -> m a) -- ^ Handler
+  -> m a            -- ^ Computation to run
+  -> (b -> m a)     -- ^ Handler
   -> m a
 catchJust p act handler = catchError act handle
   where
