@@ -62,7 +62,7 @@ data ParseError err
   = InvalidJSON String
   | BadSchema [PathPiece] (ErrorSpecifics err)
   deriving (Show, Eq)
-  
+
 data ErrorSpecifics err
   = KeyMissing Text
   | OutOfBounds Int
@@ -138,7 +138,6 @@ asRealFloat =
   floatingOrInteger :: Scientific -> Either a Integer
   floatingOrInteger = S.floatingOrInteger
 
-
 -- | Parse a single JSON boolean as a 'Bool'.
 asBoolean :: Parse err Bool
 asBoolean = liftParse $ \v ->
@@ -167,8 +166,17 @@ asNull = liftParse $ \v ->
     A.Null -> Right ()
     _ -> Left (WrongType TyNull v)
 
+-- | Take the value corresponding to a given key in the current object.
 key :: Text -> Parse err a -> Parse err a
-key k p = do
+key k p = key' (badSchema (KeyMissing k)) k p
+
+-- | Take the value corresponding to a given key in the current object, or
+-- if no property exists with that key, use the supplied default.
+keyOrDefault :: Text -> a -> Parse err a -> Parse err a
+keyOrDefault k def p = key' (pure def) k p
+
+key' :: Parse err a -> Text -> Parse err a -> Parse err a
+key' onMissing k p = do
   v <- asks rdrValue
   case v of
     A.Object obj ->
@@ -176,12 +184,22 @@ key k p = do
         Just v' ->
           local (appendPath (ObjectKey k) . setValue v') p
         Nothing ->
-          badSchema (KeyMissing k)
+          onMissing
     _ ->
       badSchema (WrongType TyObject v)
 
+-- | Take the nth value of the current array.
 nth :: Int -> Parse err a -> Parse err a
-nth n p = do
+nth n p = nth' (badSchema (OutOfBounds n)) n p
+
+-- | Take the nth value of the current array, or if no value exists with that
+-- index, use the supplied default.
+nthOrDefault :: Int -> a -> Parse err a -> Parse err a
+nthOrDefault n def p =
+  nth' (pure def) n p
+
+nth' :: Parse err a -> Int -> Parse err a -> Parse err a
+nth' onMissing n p = do
   v <- asks rdrValue
   case v of
     A.Array vect ->
@@ -189,7 +207,7 @@ nth n p = do
         Just v' ->
           local (appendPath (ArrayIndex n) . setValue v') p
         Nothing ->
-          badSchema (OutOfBounds n)
+          onMissing
     _ ->
       badSchema (WrongType TyArray v)
 
@@ -197,3 +215,18 @@ eachInArray :: Parse err a -> Parse err [a]
 eachInArray p = do
   xs <- zip [0..] . V.toList <$> asArray
   mapM (\(i, x) -> local (appendPath (ArrayIndex i) . setValue x) p) xs
+
+
+-- | A version of catchJust from "Control.Exception.Base", except for any
+-- instance of 'MonadError'.
+catchJust :: MonadError e m
+  => (e -> Maybe b) -- ^ Predicate to select exceptions
+  -> m a -- ^ Computation to run
+  -> (b -> m a) -- ^ Handler
+  -> m a
+catchJust p act handler = catchError act handle
+  where
+  handle e =
+    case p e of
+      Nothing -> throwError e
+      Just b -> handler b
