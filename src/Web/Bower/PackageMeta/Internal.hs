@@ -8,7 +8,7 @@
 -- This code is based on the specification at
 -- <https://github.com/bower/bower.json-spec>.
 
-module Web.BowerJson where
+module Web.Bower.PackageMeta.Internal where
 
 import Control.Applicative
 import Control.Monad
@@ -35,9 +35,9 @@ import Data.Aeson.BetterErrors
 -- Note that the 'ToJSON' / 'FromJSON' instances don't exactly match; for
 -- example, it is not always the case that decoding from JSON and then encoding
 -- to JSON will give you the exact same JSON that you started with. However, if
--- you start with a BowerJson value, encode to JSON, and then decode, you
+-- you start with a PackageMeta value, encode to JSON, and then decode, you
 -- should always get the same value back.
-data BowerJson = BowerJson
+data PackageMeta = PackageMeta
   { bowerName            :: PackageName
   , bowerDescription     :: Maybe String
   , bowerMain            :: [FilePath]
@@ -173,13 +173,13 @@ showPackageNameError err = case err of
 -- Parsing
 
 -- | Read and attempt to decode a bower.json file.
-decodeFile :: FilePath -> IO (Either (ParseError BowerError) BowerJson)
-decodeFile = fmap (parse asBowerJson) . B.readFile
+decodeFile :: FilePath -> IO (Either (ParseError BowerError) PackageMeta)
+decodeFile = fmap (parse asPackageMeta) . B.readFile
 
 -- | A parser for bower.json files, using the aeson-better-errors package.
-asBowerJson :: Parse BowerError BowerJson
-asBowerJson =
-  BowerJson <$> key "name" (withString parsePackageName)
+asPackageMeta :: Parse BowerError PackageMeta
+asPackageMeta =
+  PackageMeta <$> key "name" (withString parsePackageName)
             <*> keyMay "description" asString
             <*> keyOrDefault "main"       [] (eachInArray asString)
             <*> keyOrDefault "moduleType" [] (eachInArray (withString parseModuleType))
@@ -255,8 +255,8 @@ asRepository =
 ------------------------
 -- Serializing
 
-instance A.ToJSON BowerJson where
-  toJSON BowerJson{..} =
+instance A.ToJSON PackageMeta where
+  toJSON PackageMeta{..} =
     A.object $ concat
       [ [ "name" .= bowerName ]
       , maybePair "description" bowerDescription
@@ -319,8 +319,8 @@ maybeArrayAssocPair f k xs = [k .= A.object (map (\(k', v) -> f k' .= v) xs)]
 -------------------------
 -- FromJSON instances
 
-instance A.FromJSON BowerJson where
-  parseJSON = toAesonParser showBowerError asBowerJson
+instance A.FromJSON PackageMeta where
+  parseJSON = toAesonParser showBowerError asPackageMeta
 
 instance A.FromJSON PackageName where
   parseJSON = toAesonParser showBowerError (withString parsePackageName)

@@ -1,6 +1,6 @@
 name:                bower-json
-version:             0.4.0.0
-synopsis:            bower.json from Haskell
+version:             0.5.0.0
+synopsis:            Read bower.json from Haskell
 license:             MIT
 license-file:        LICENSE
 author:              Harry Garrood
@@ -21,7 +21,8 @@ source-repository head
   location: https://github.com/hdgarrood/bower-json
 
 library
-  exposed-modules:   Web.BowerJson
+  exposed-modules:   Web.Bower.PackageMeta
+  other-modules:     Web.Bower.PackageMeta.Internal
   build-depends:     base >=4 && <5
                    , aeson >=0.6.1.0
                    , aeson-better-errors >= 0.4

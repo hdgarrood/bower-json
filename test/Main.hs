@@ -8,7 +8,7 @@ import Data.Monoid
 import Data.Aeson
 import qualified Data.ByteString.Lazy as B
 
-import Web.BowerJson
+import Web.Bower.PackageMeta
 
 -- Decode any JSON value, not just arrays/objects.
 -- this is a bit of a hack, but the 'proper' way is just too much effort.
@@ -90,7 +90,7 @@ optionalKeyTests =
 
 Right pkgName = mkPackageName "test-package"
 Right depPkgName = mkPackageName "dependency-package"
-basic = BowerJson pkgName Nothing [] [] [] [] [] [] Nothing Nothing [] [] [] False
+basic = PackageMeta pkgName Nothing [] [] [] [] [] [] Nothing Nothing [] [] [] False
 basicWithDeps = basic { bowerDependencies = [(depPkgName, VersionRange ">= 1.0")] }
 basicWithModuleType = basic { bowerModuleType = [AMD] }
 
@@ -111,7 +111,7 @@ complex =
 
 complexPrivate = complex { bowerPrivate = True }
 
-allBowerJsons =
+allPkgs =
   [ ("basic", basic)
   , ("basicWithDeps", basicWithDeps)
   , ("basicWithModuleType", basicWithModuleType)
@@ -122,4 +122,4 @@ allBowerJsons =
 roundTripTests :: [TestTree]
 roundTripTests =
   map (\(name, b) -> testCase name (Just b @=? decode (encode b)))
-      allBowerJsons
+      allPkgs
