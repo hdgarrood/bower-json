@@ -319,20 +319,26 @@ maybeArrayAssocPair f k xs = [k .= A.object (map (\(k', v) -> f k' .= v) xs)]
 -------------------------
 -- FromJSON instances
 
+mkAeson :: Parse BowerError a -> Aeson.Value -> Aeson.Parser a
+mkAeson = toAesonParser showBowerError
+
+instance A.FromJSON BowerJson where
+  parseJSON = mkAeson asBowerJson
+
 instance A.FromJSON PackageName where
-  parseJSON = undefined
+  parseJSON = mkAeson (withString parsePackageName)
 
 instance A.FromJSON ModuleType where
-  parseJSON = undefined
+  parseJSON = mkAeson (withString parseModuleType)
 
 instance A.FromJSON Repository where
-  parseJSON = undefined
+  parseJSON = mkAeson asRepository
 
 instance A.FromJSON Author where
-  parseJSON = undefined
+  parseJSON = mkAeson asAuthor
 
 instance A.FromJSON Version where
-  parseJSON = undefined
+  parseJSON = mkAeson (Version <$> asString)
 
 instance A.FromJSON VersionRange where
-  parseJSON = undefined
+  parseJSON = mkAeson (VersionRange <$> asString)

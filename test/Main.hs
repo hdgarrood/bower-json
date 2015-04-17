@@ -6,7 +6,6 @@ import Test.Tasty.HUnit
 import Control.Monad
 import Data.Monoid
 import Data.Aeson
-import Data.Maybe
 import qualified Data.ByteString.Lazy as B
 
 import Web.BowerJson
@@ -89,8 +88,8 @@ optionalKeyTests =
   ]
   where
 
-pkgName = fromJust (mkPackageName "test-package")
-depPkgName = fromJust (mkPackageName "dependency-package")
+Right pkgName = mkPackageName "test-package"
+Right depPkgName = mkPackageName "dependency-package"
 basic = BowerJson pkgName Nothing [] [] [] [] [] [] Nothing Nothing [] [] [] False
 basicWithDeps = basic { bowerDependencies = [(depPkgName, VersionRange ">= 1.0")] }
 basicWithModuleType = basic { bowerModuleType = [AMD] }
