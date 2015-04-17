@@ -6,10 +6,6 @@
 -- messages in the case of JSON with a bad schema.
 
 module Data.Aeson.BetterErrors where
-  -- ( Parse
-  -- , Error(..)
-  -- , PathPart(..)
-  -- ) where
 
 import Control.Applicative
 import Control.Monad.Reader
@@ -17,12 +13,12 @@ import Control.Monad.Error.Class (MonadError(..))
 import Control.Monad.Trans.Except
 
 import qualified Data.Aeson as A
-
 import Data.Vector ((!?))
 import qualified Data.Vector as V
 import Data.Scientific (Scientific)
 import qualified Data.Scientific as S
 import qualified Data.HashMap.Strict as HashMap
+
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
