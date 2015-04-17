@@ -169,6 +169,9 @@ showPackageNameError err = case err of
   MustNotEndSeparator ->
     "Package names may not end with a dash or a dot"
 
+displayError :: ParseError BowerError -> Text
+displayError = T.unlines . Data.Aeson.BetterErrors.displayError showBowerError
+
 -------------------------
 -- Parsing
 

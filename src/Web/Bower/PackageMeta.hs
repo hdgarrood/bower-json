@@ -24,6 +24,7 @@ module Web.Bower.PackageMeta
   , showPackageNameError
   -- * Parsing
   , decodeFile
+  , displayError
   , asPackageMeta
   , parseModuleType
   , parsePackageName

@@ -6,20 +6,23 @@ package manifest files.
 Example usage:
 
 ```haskell
+{-# LANGUAGE OverloadedStrings #-}
 import System.IO
 import System.Exit
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
-import Web.BowerJson
+import Web.Bower.PackageMeta
 
 main = do
-  eBowerJson <- decodeFile "bower.json"
-  case eBowerJson of
-    Right bowerJson ->
-      if bowerPrivate bowerJson
-        then hPutStrLn stderr "error: package is private" >> exitFailure
-        else putStrLn (runPackageName (bowerName bowerJson))
+  ePkgMeta <- decodeFile "bower.json"
+  case ePkgMeta of
+    Right pkgMeta ->
+      if bowerPrivate pkgMeta
+        then T.hPutStrLn stderr "error: package is private" >> exitFailure
+        else putStrLn (runPackageName (bowerName pkgMeta))
     Left err -> do
-      hPutStrLn stderr ("error: failed to parse bower.json: " ++ err)
+      T.hPutStrLn stderr ("error: failed to parse bower.json: " `T.append` displayError err)
       exitFailure
 ```
 
