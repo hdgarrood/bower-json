@@ -9,23 +9,12 @@
 -- <https://github.com/bower/bower.json-spec>.
 
 module Web.BowerJson where
-  -- ( BowerJson(..)
-  -- , decodeFile
-  -- , PackageName
-  -- , runPackageName
-  -- , mkPackageName
-  -- , ModuleType(..)
-  -- , moduleTypes
-  -- , Author(..)
-  -- , Repository(..)
-  -- , VersionRange(..)
-  -- , Version(..)
-  -- ) where
 
 import Control.Applicative
 import Control.Monad
 import Control.Category ((>>>))
 import Control.Monad.Error.Class (MonadError(..))
+import Data.Monoid
 import Data.List
 import Data.Char
 import Data.Text (Text)
@@ -36,8 +25,6 @@ import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as Aeson
 import Data.Aeson.BetterErrors
-
-import qualified Data.HashMap.Strict as HashMap
 
 ---------------------
 -- Data types
@@ -68,10 +55,93 @@ data BowerJson = BowerJson
   }
   deriving (Show, Eq, Ord)
 
+-- | A valid package name for a Bower package.
+newtype PackageName
+  = PackageName String
+  deriving (Show, Eq, Ord)
+
+runPackageName :: PackageName -> String
+runPackageName (PackageName s) = s
+
+-- | A smart constructor for a PackageName. It ensures that the package name
+-- satisfies the restrictions described at
+-- <https://github.com/bower/bower.json-spec#name>.
+mkPackageName :: String -> Either PackageNameError PackageName
+mkPackageName = fmap PackageName . validateAll validators
+  where
+  dashOrDot = ['-', '.']
+  validateAll vs x = mapM_ (validateWith x) vs >> return x
+  validateWith x (p, err)
+    | p x       = Right x
+    | otherwise = Left (err x)
+  validChar c = isAscii c && (isLower c || isDigit c || c `elem` dashOrDot)
+  validators =
+      [ (not . null, const NotEmpty)
+      , (all validChar, InvalidChars . filter (not . validChar))
+      , (headMay >>> isJustAnd (`notElem` dashOrDot), const MustNotBeginSeparator)
+      , (lastMay >>> isJustAnd (`notElem` dashOrDot), const MustNotEndSeparator)
+      , (not . isInfixOf "--", const RepeatedSeparators)
+      , (not . isInfixOf "..", const RepeatedSeparators)
+      , (length >>> (<= 50), TooLong . length)
+      ]
+  isJustAnd = maybe False
+
+headMay :: [a] -> Maybe a
+headMay [] = Nothing
+headMay (x:_) = Just x
+
+lastMay :: [a] -> Maybe a
+lastMay [] = Nothing
+lastMay [x] = Just x
+lastMay (_:xs) = lastMay xs
+
+data Author = Author
+  { authorName     :: String
+  , authorEmail    :: Maybe String
+  , authorHomepage :: Maybe String
+  }
+  deriving (Show, Eq, Ord)
+
+-- | See: <https://github.com/bower/bower.json-spec#moduletype>
+data ModuleType
+  = Globals
+  | AMD
+  | Node
+  | ES6
+  | YUI
+  deriving (Show, Eq, Ord, Enum, Bounded)
+
+moduleTypes :: [(String, ModuleType)]
+moduleTypes = map (\t -> (map toLower (show t), t)) [minBound .. maxBound]
+
+data Repository = Repository
+  { repositoryUrl :: String
+  , repositoryType :: String
+  }
+  deriving (Show, Eq, Ord)
+
+newtype Version
+  = Version { runVersion :: String }
+  deriving (Show, Eq, Ord)
+
+newtype VersionRange
+  = VersionRange { runVersionRange :: String }
+  deriving (Show, Eq, Ord)
 
 data BowerError
   = InvalidPackageName PackageNameError
   | InvalidModuleType String
+
+showBowerError :: BowerError -> Text
+showBowerError (InvalidPackageName err) =
+  "Invalid package name: " <> showPackageNameError err
+showBowerError (InvalidModuleType str) =
+  "Invalid module type: " <> T.pack str <>
+    ". Must be one of: " <> renderList moduleTypes
+  where
+  renderList =
+    map (T.pack . show . fst)
+      >>> T.intercalate ", "
 
 data PackageNameError
   = NotEmpty
@@ -81,8 +151,30 @@ data PackageNameError
   | MustNotBeginSeparator
   | MustNotEndSeparator
 
+showPackageNameError :: PackageNameError -> Text
+showPackageNameError err = case err of
+  NotEmpty ->
+    "A package name may not be empty"
+  TooLong x ->
+    "Package names must be no more than 50 characters, yours was " <>
+      T.pack (show x)
+  InvalidChars str ->
+    "The following characters are not permitted in package names: " <>
+      T.intercalate " " (map T.singleton str)
+  RepeatedSeparators ->
+    "The substrings \"--\" and \"..\" may not appear in "<>
+      "package names"
+  MustNotBeginSeparator ->
+    "Package names may not begin with a dash or a dot"
+  MustNotEndSeparator ->
+    "Package names may not end with a dash or a dot"
+
 -------------------------
 -- Parsing
+
+-- | Read and attempt to decode a bower.json file.
+decodeFile :: FilePath -> IO (Either (ParseError BowerError) BowerJson)
+decodeFile = fmap (parse asBowerJson) . B.readFile
 
 -- | A parser for bower.json files, using the aeson-better-errors package.
 asBowerJson :: Parse BowerError BowerJson
@@ -129,153 +221,6 @@ asAuthorString = withString $ \s ->
       (homepage, s2) = takeDelim "(" ")" s1
   in pure (Author (unwords s2) email homepage)
 
-asAuthorObject :: Parse e Author
-asAuthorObject =
-  Author <$> key "name" asString
-         <*> keyMay "email" asString
-         <*> keyMay "homepage" asString
-
-asRepository :: Parse e Repository
-asRepository =
-  Repository <$> key "url" asString
-             <*> key "type" asString
-
-instance A.ToJSON BowerJson where
-  toJSON BowerJson{..} =
-    A.object $ concat
-      [ [ "name" .= bowerName ]
-      , maybePair "description" bowerDescription
-      , maybeArrayPair "main" bowerMain
-      , maybeArrayPair "moduleType" bowerModuleType
-      , maybeArrayPair "licence" bowerLicence
-      , maybeArrayPair "ignore" bowerIgnore
-      , maybeArrayPair "keywords" bowerKeywords
-      , maybeArrayPair "authors" bowerAuthors
-      , maybePair "homepage" bowerHomepage
-      , maybePair "repository" bowerRepository
-      , assoc "dependencies" bowerDependencies
-      , assoc "devDependencies" bowerDevDependencies
-      , assoc "resolutions" bowerResolutions
-      , if bowerPrivate then [ "private" .= True ] else []
-      ]
-
-      where
-      asText = T.pack . runPackageName
-
-      assoc :: A.ToJSON a => Text -> [(PackageName, a)] -> [Aeson.Pair]
-      assoc = maybeArrayAssocPair asText
-
-maybePair :: A.ToJSON a => Text -> Maybe a -> [Aeson.Pair]
-maybePair key = maybe [] (\val -> [key .= val])
-
-maybeArrayPair :: A.ToJSON a => Text -> [a] -> [Aeson.Pair]
-maybeArrayPair _   [] = []
-maybeArrayPair key xs = [key .= xs]
-
-maybeArrayAssocPair :: A.ToJSON b => (a -> Text) -> Text -> [(a,b)] -> [Aeson.Pair]
-maybeArrayAssocPair _ _   [] = []
-maybeArrayAssocPair f key xs = [key .= A.object (map (\(k, v) -> f k .= v) xs)]
-
--- | Read and attempt to decode a bower.json file.
--- decodeFile :: FilePath -> IO (Either String BowerJson)
--- decodeFile = fmap A.eitherDecode . B.readFile
-
--- | A valid package name for a Bower package.
-newtype PackageName
-  = PackageName String
-  deriving (Show, Eq, Ord)
-
-runPackageName :: PackageName -> String
-runPackageName (PackageName s) = s
-
-instance A.FromJSON PackageName where
-  parseJSON = undefined
-
-instance A.ToJSON PackageName where
-  toJSON = A.toJSON . runPackageName
-
--- | A smart constructor for a PackageName. It ensures that the package name
--- satisfies the restrictions described at
--- <https://github.com/bower/bower.json-spec#name>.
-mkPackageName :: String -> Either PackageNameError PackageName
-mkPackageName = fmap PackageName . validateAll validators
-  where
-  dashOrDot = ['-', '.']
-  validateAll vs x = mapM_ (validateWith x) vs >> return x
-  validateWith x (pred, err)
-    | pred x    = Right x
-    | otherwise = Left (err x)
-  validChar c = isAscii c && (isLower c || isDigit c || c `elem` dashOrDot)
-  validators =
-      [ (not . null, const NotEmpty)
-      , (all validChar, InvalidChars . filter (not . validChar))
-      , (headMay >>> isJustAnd (`notElem` dashOrDot), const MustNotBeginSeparator)
-      , (lastMay >>> isJustAnd (`notElem` dashOrDot), const MustNotEndSeparator)
-      , (not . isInfixOf "--", const RepeatedSeparators)
-      , (not . isInfixOf "..", const RepeatedSeparators)
-      , (length >>> (<= 50), TooLong . length)
-      ]
-  isJustAnd = maybe False
-
-headMay :: [a] -> Maybe a
-headMay [] = Nothing
-headMay (x:_) = Just x
-
-lastMay :: [a] -> Maybe a
-lastMay [] = Nothing
-lastMay [x] = Just x
-lastMay (_:xs) = lastMay xs
-
--- | See: <https://github.com/bower/bower.json-spec#moduletype>
-data ModuleType
-  = Globals
-  | AMD
-  | Node
-  | ES6
-  | YUI
-  deriving (Show, Eq, Ord, Enum)
-
-moduleTypes :: [(String, ModuleType)]
-moduleTypes = map (\t -> (map toLower (show t), t)) [Globals .. YUI]
-
-instance A.FromJSON ModuleType where
-  parseJSON = undefined
-
-instance A.ToJSON ModuleType where
-  toJSON = A.toJSON . map toLower . show
-
-data Repository = Repository
-  { repositoryUrl :: String
-  , repositoryType :: String
-  }
-  deriving (Show, Eq, Ord)
-
-instance A.FromJSON Repository where
-  parseJSON = undefined
-
-instance A.ToJSON Repository where
-  toJSON Repository{..} =
-    A.object [ "url" .= repositoryUrl
-             , "type" .= repositoryType
-             ]
-
-data Author = Author
-  { authorName     :: String
-  , authorEmail    :: Maybe String
-  , authorHomepage :: Maybe String
-  }
-  deriving (Show, Eq, Ord)
-
-instance A.FromJSON Author where
-  parseJSON = undefined
-
-instance A.ToJSON Author where
-  toJSON Author{..} =
-    A.object $
-      [ "name" .= authorName ] ++
-        maybePair "email" authorEmail ++
-        maybePair "homepage" authorHomepage
-
 -- | Given a prefix and a suffix, go through the supplied list, attempting
 -- to extract one string from the list which has the given prefix and suffix,
 -- All other strings in the list are returned as the second component of the
@@ -298,22 +243,98 @@ stripWrapper start end =
     >=> stripPrefix (reverse end)
     >>> fmap reverse
 
-newtype Version
-  = Version { runVersion :: String }
-  deriving (Show, Eq, Ord)
+asAuthorObject :: Parse e Author
+asAuthorObject =
+  Author <$> key "name" asString
+         <*> keyMay "email" asString
+         <*> keyMay "homepage" asString
 
-instance A.FromJSON Version where
-  parseJSON = undefined
+asRepository :: Parse e Repository
+asRepository =
+  Repository <$> key "url" asString
+             <*> key "type" asString
+
+------------------------
+-- Serializing
+
+instance A.ToJSON BowerJson where
+  toJSON BowerJson{..} =
+    A.object $ concat
+      [ [ "name" .= bowerName ]
+      , maybePair "description" bowerDescription
+      , maybeArrayPair "main" bowerMain
+      , maybeArrayPair "moduleType" bowerModuleType
+      , maybeArrayPair "licence" bowerLicence
+      , maybeArrayPair "ignore" bowerIgnore
+      , maybeArrayPair "keywords" bowerKeywords
+      , maybeArrayPair "authors" bowerAuthors
+      , maybePair "homepage" bowerHomepage
+      , maybePair "repository" bowerRepository
+      , assoc "dependencies" bowerDependencies
+      , assoc "devDependencies" bowerDevDependencies
+      , assoc "resolutions" bowerResolutions
+      , if bowerPrivate then [ "private" .= True ] else []
+      ]
+
+      where
+      toText = T.pack . runPackageName
+
+      assoc :: A.ToJSON a => Text -> [(PackageName, a)] -> [Aeson.Pair]
+      assoc = maybeArrayAssocPair toText
+
+instance A.ToJSON PackageName where
+  toJSON = A.toJSON . runPackageName
+
+instance A.ToJSON ModuleType where
+  toJSON = A.toJSON . map toLower . show
+
+instance A.ToJSON Repository where
+  toJSON Repository{..} =
+    A.object [ "url" .= repositoryUrl
+             , "type" .= repositoryType
+             ]
+
+instance A.ToJSON Author where
+  toJSON Author{..} =
+    A.object $
+      [ "name" .= authorName ] ++
+        maybePair "email" authorEmail ++
+        maybePair "homepage" authorHomepage
 
 instance A.ToJSON Version where
   toJSON = A.toJSON . runVersion
 
-newtype VersionRange
-  = VersionRange { runVersionRange :: String }
-  deriving (Show, Eq, Ord)
+instance A.ToJSON VersionRange where
+  toJSON = A.toJSON . runVersionRange
+
+maybePair :: A.ToJSON a => Text -> Maybe a -> [Aeson.Pair]
+maybePair k = maybe [] (\val -> [k .= val])
+
+maybeArrayPair :: A.ToJSON a => Text -> [a] -> [Aeson.Pair]
+maybeArrayPair _   [] = []
+maybeArrayPair k xs = [k .= xs]
+
+maybeArrayAssocPair :: A.ToJSON b => (a -> Text) -> Text -> [(a,b)] -> [Aeson.Pair]
+maybeArrayAssocPair _ _   [] = []
+maybeArrayAssocPair f k xs = [k .= A.object (map (\(k', v) -> f k' .= v) xs)]
+
+-------------------------
+-- FromJSON instances
+
+instance A.FromJSON PackageName where
+  parseJSON = undefined
+
+instance A.FromJSON ModuleType where
+  parseJSON = undefined
+
+instance A.FromJSON Repository where
+  parseJSON = undefined
+
+instance A.FromJSON Author where
+  parseJSON = undefined
+
+instance A.FromJSON Version where
+  parseJSON = undefined
 
 instance A.FromJSON VersionRange where
   parseJSON = undefined
-
-instance A.ToJSON VersionRange where
-  toJSON = A.toJSON . runVersionRange
