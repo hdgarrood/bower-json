@@ -24,7 +24,7 @@ library
   exposed-modules:   Web.BowerJson
   build-depends:     base >=4 && <5
                    , aeson >=0.6.1.0
-                   , aeson-better-errors >= 0.1.0.1
+                   , aeson-better-errors >= 0.3
                    , unordered-containers
                    , text
                    , bytestring
