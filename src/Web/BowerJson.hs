@@ -196,9 +196,7 @@ asBowerJson =
   where
   asAssocListOf :: (String -> a) -> Parse BowerError [(PackageName, a)]
   asAssocListOf g =
-    eachInObject asString
-      >>= mapM ((\(k,v) ->
-        liftEither ((,) <$> parsePackageName (T.unpack k) <*> pure (g v))))
+    eachInObjectWithKey (parsePackageName . T.unpack) (g <$> asString)
 
 parseModuleType :: String -> Either BowerError ModuleType
 parseModuleType str =
