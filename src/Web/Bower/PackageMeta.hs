@@ -6,8 +6,29 @@
 -- <https://github.com/bower/bower.json-spec>.
 
 module Web.Bower.PackageMeta
-  (module Web.Bower.PackageMeta.Internal) where
-  -- (
-  -- ) where
+  (
+  -- * Data types
+  PackageMeta(..)
+  , PackageName
+  , runPackageName
+  , mkPackageName
+  , Author(..)
+  , ModuleType(..)
+  , moduleTypes
+  , Repository(..)
+  , Version(..)
+  , VersionRange(..)
+  , BowerError(..)
+  , showBowerError
+  , PackageNameError(..)
+  , showPackageNameError
+  -- * Parsing
+  , decodeFile
+  , asPackageMeta
+  , parseModuleType
+  , parsePackageName
+  , asAuthor
+  , asRepository
+  ) where
 
 import Web.Bower.PackageMeta.Internal
