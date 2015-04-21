@@ -131,6 +131,7 @@ newtype VersionRange
 data BowerError
   = InvalidPackageName PackageNameError
   | InvalidModuleType String
+  deriving (Show, Eq, Ord)
 
 showBowerError :: BowerError -> Text
 showBowerError (InvalidPackageName err) =
@@ -150,6 +151,7 @@ data PackageNameError
   | RepeatedSeparators
   | MustNotBeginSeparator
   | MustNotEndSeparator
+  deriving (Show, Eq, Ord)
 
 showPackageNameError :: PackageNameError -> Text
 showPackageNameError err = case err of
