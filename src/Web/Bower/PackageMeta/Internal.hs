@@ -189,9 +189,9 @@ asPackageMeta :: Parse BowerError PackageMeta
 asPackageMeta =
   PackageMeta <$> key "name" (withString parsePackageName)
             <*> keyMay "description" asString
-            <*> keyOrDefault "main"       [] (eachInArray asString)
-            <*> keyOrDefault "moduleType" [] (eachInArray (withString parseModuleType))
-            <*> keyOrDefault "license"    [] (eachInArray asString)
+            <*> keyOrDefault "main"       [] (arrayOrSingle asString)
+            <*> keyOrDefault "moduleType" [] (arrayOrSingle (withString parseModuleType))
+            <*> keyOrDefault "license"    [] (arrayOrSingle asString)
             <*> keyOrDefault "ignore"     [] (eachInArray asString)
             <*> keyOrDefault "keywords"   [] (eachInArray asString)
             <*> keyOrDefault "authors"    [] (eachInArray asAuthor)
@@ -202,6 +202,12 @@ asPackageMeta =
             <*> keyOrDefault "resolutions"     [] (asAssocListOf Version)
             <*> keyOrDefault "private" False asBool
   where
+  arrayOrSingle :: Parse e a -> Parse e [a]
+  arrayOrSingle parser =
+    (fmap (:[]) parser) <|> eachInArray parser
+    where
+    (<|>) p q = catchError p (const q)
+
   asAssocListOf :: (String -> a) -> Parse BowerError [(PackageName, a)]
   asAssocListOf g =
     eachInObjectWithKey (parsePackageName . T.unpack) (g <$> asString)
