@@ -267,7 +267,7 @@ instance A.ToJSON PackageMeta where
       , maybePair "description" bowerDescription
       , maybeArrayPair "main" bowerMain
       , maybeArrayPair "moduleType" bowerModuleType
-      , maybeArrayPair "licence" bowerLicence
+      , maybeArrayPair "license" bowerLicense
       , maybeArrayPair "ignore" bowerIgnore
       , maybeArrayPair "keywords" bowerKeywords
       , maybeArrayPair "authors" bowerAuthors
