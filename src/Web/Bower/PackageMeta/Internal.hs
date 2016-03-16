@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE CPP #-}
 
 -- | A data type representing the Bower.json package description file, together
 -- with a parser and related functions.
@@ -10,7 +11,9 @@
 
 module Web.Bower.PackageMeta.Internal where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Monad
 import Control.Category ((>>>))
 import Control.Monad.Error.Class (MonadError(..))
