@@ -2,3 +2,4 @@ dist/
 cabal.config
 ReadmeTest.hs
 bower.json
+.stack-work/
