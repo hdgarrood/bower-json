@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -26,6 +27,7 @@ tests = testGroup "tests"
   [ testGroup "FromJSON Author instance" authorTests
   , testGroup "optional keys" optionalKeyTests
   , testGroup "round trips" roundTripTests
+  , testGroup "real bower.json" realBowerJsonTests
   ]
 
 authorTests :: [TestTree]
@@ -123,3 +125,15 @@ roundTripTests :: [TestTree]
 roundTripTests =
   map (\(name, b) -> testCase name (Just b @=? decode (encode b)))
       allPkgs
+
+realBowerJsonTests :: [TestTree]
+realBowerJsonTests = [go]
+  where
+  go =
+    testCase "parses a real bower.json correctly" $ do
+      res <- decodeFile "./test-resources/bower.json"
+      case res of
+        Right PackageMeta{..} ->
+          ["MIT"] @=? bowerLicense
+        Left err ->
+          assertBool ("Failed to parse ./test-resources/bower.json: " ++ show err) False

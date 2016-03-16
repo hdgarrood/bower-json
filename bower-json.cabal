@@ -16,6 +16,9 @@ description:
   This package provides a data type and ToJSON/FromJSON instances for Bower's
   package manifest file, bower.json.
 
+extra-source-files:
+  test-resources/bower.json
+
 source-repository head
   type:     git
   location: https://github.com/hdgarrood/bower-json
