@@ -42,7 +42,7 @@ data PackageMeta = PackageMeta
   , bowerDescription     :: Maybe String
   , bowerMain            :: [FilePath]
   , bowerModuleType      :: [ModuleType]
-  , bowerLicence         :: [String]
+  , bowerLicense         :: [String]
   , bowerIgnore          :: [String]
   , bowerKeywords        :: [String]
   , bowerAuthors         :: [Author]
@@ -188,7 +188,7 @@ asPackageMeta =
             <*> keyMay "description" asString
             <*> keyOrDefault "main"       [] (eachInArray asString)
             <*> keyOrDefault "moduleType" [] (eachInArray (withString parseModuleType))
-            <*> keyOrDefault "licence"    [] (eachInArray asString)
+            <*> keyOrDefault "license"    [] (eachInArray asString)
             <*> keyOrDefault "ignore"     [] (eachInArray asString)
             <*> keyOrDefault "keywords"   [] (eachInArray asString)
             <*> keyOrDefault "authors"    [] (eachInArray asAuthor)
