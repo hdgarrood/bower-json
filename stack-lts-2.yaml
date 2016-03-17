@@ -1,0 +1,6 @@
+flags: {}
+packages:
+- '.'
+extra-deps:
+- aeson-better-errors-0.9.0
+resolver: lts-2.12
