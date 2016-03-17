@@ -12,7 +12,7 @@
 module Web.Bower.PackageMeta.Internal where
 
 #if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
+import Control.Applicative ((<$>))
 #endif
 import Control.Monad
 import Control.Category ((>>>))
