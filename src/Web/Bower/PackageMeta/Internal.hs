@@ -2,6 +2,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 -- | A data type representing the Bower.json package description file, together
 -- with a parser and related functions.
@@ -17,6 +18,8 @@ import Control.Applicative (pure, (<$>), (<*>))
 import Control.Monad
 import Control.Category ((>>>))
 import Control.Monad.Error.Class (MonadError(..))
+import Control.DeepSeq
+import GHC.Generics
 import Data.Monoid
 import Data.List
 import Data.Char
@@ -56,12 +59,16 @@ data PackageMeta = PackageMeta
   , bowerResolutions     :: [(PackageName, Version)]
   , bowerPrivate         :: Bool
   }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+
+instance NFData PackageMeta
 
 -- | A valid package name for a Bower package.
 newtype PackageName
   = PackageName String
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+
+instance NFData PackageName
 
 runPackageName :: PackageName -> String
 runPackageName (PackageName s) = s
@@ -103,7 +110,9 @@ data Author = Author
   , authorEmail    :: Maybe String
   , authorHomepage :: Maybe String
   }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+
+instance NFData Author
 
 -- | See: <https://github.com/bower/bower.json-spec#moduletype>
 data ModuleType
@@ -112,7 +121,9 @@ data ModuleType
   | Node
   | ES6
   | YUI
-  deriving (Show, Eq, Ord, Enum, Bounded)
+  deriving (Show, Eq, Ord, Enum, Bounded, Generic)
+
+instance NFData ModuleType
 
 moduleTypes :: [(String, ModuleType)]
 moduleTypes = map (\t -> (map toLower (show t), t)) [minBound .. maxBound]
@@ -121,20 +132,28 @@ data Repository = Repository
   { repositoryUrl :: String
   , repositoryType :: String
   }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+
+instance NFData Repository
 
 newtype Version
   = Version { runVersion :: String }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+
+instance NFData Version
 
 newtype VersionRange
   = VersionRange { runVersionRange :: String }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+
+instance NFData VersionRange
 
 data BowerError
   = InvalidPackageName PackageNameError
   | InvalidModuleType String
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+
+instance NFData BowerError
 
 showBowerError :: BowerError -> Text
 showBowerError (InvalidPackageName err) =
@@ -154,7 +173,9 @@ data PackageNameError
   | RepeatedSeparators
   | MustNotBeginSeparator
   | MustNotEndSeparator
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+
+instance NFData PackageNameError
 
 showPackageNameError :: PackageNameError -> Text
 showPackageNameError err = case err of
