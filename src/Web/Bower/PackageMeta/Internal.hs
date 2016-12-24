@@ -29,7 +29,7 @@ import qualified Data.ByteString.Lazy as B
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as Aeson
-import Data.Aeson.BetterErrors
+import Data.Aeson.BetterErrors (Parse, ParseError, asText, asString, asBool, eachInArray, eachInObjectWithKey, withText, key, keyMay, keyOrDefault, toAesonParser', toAesonParser, displayError, parse)
 
 ---------------------
 -- Data types
