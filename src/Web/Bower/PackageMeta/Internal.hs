@@ -21,7 +21,6 @@ import Control.Monad.Error.Class (MonadError(..))
 import Control.DeepSeq
 import GHC.Generics
 import Data.Monoid
-import Data.List
 import Data.Char
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -45,14 +44,14 @@ import Data.Aeson.BetterErrors
 -- should always get the same value back.
 data PackageMeta = PackageMeta
   { bowerName            :: PackageName
-  , bowerDescription     :: Maybe String
+  , bowerDescription     :: Maybe Text
   , bowerMain            :: [FilePath]
   , bowerModuleType      :: [ModuleType]
-  , bowerLicense         :: [String]
-  , bowerIgnore          :: [String]
-  , bowerKeywords        :: [String]
+  , bowerLicense         :: [Text]
+  , bowerIgnore          :: [Text]
+  , bowerKeywords        :: [Text]
   , bowerAuthors         :: [Author]
-  , bowerHomepage        :: Maybe String
+  , bowerHomepage        :: Maybe Text
   , bowerRepository      :: Maybe Repository
   , bowerDependencies    :: [(PackageName, VersionRange)]
   , bowerDevDependencies :: [(PackageName, VersionRange)]
@@ -65,18 +64,18 @@ instance NFData PackageMeta
 
 -- | A valid package name for a Bower package.
 newtype PackageName
-  = PackageName String
+  = PackageName Text
   deriving (Show, Eq, Ord, Generic)
 
 instance NFData PackageName
 
-runPackageName :: PackageName -> String
+runPackageName :: PackageName -> Text
 runPackageName (PackageName s) = s
 
 -- | A smart constructor for a PackageName. It ensures that the package name
 -- satisfies the restrictions described at
 -- <https://github.com/bower/bower.json-spec#name>.
-mkPackageName :: String -> Either PackageNameError PackageName
+mkPackageName :: Text -> Either PackageNameError PackageName
 mkPackageName = fmap PackageName . validateAll validators
   where
   dashOrDot = ['-', '.']
@@ -86,29 +85,21 @@ mkPackageName = fmap PackageName . validateAll validators
     | otherwise = Left (err x)
   validChar c = isAscii c && (isLower c || isDigit c || c `elem` dashOrDot)
   validators =
-      [ (not . null, const NotEmpty)
-      , (all validChar, InvalidChars . filter (not . validChar))
-      , (headMay >>> isJustAnd (`notElem` dashOrDot), const MustNotBeginSeparator)
-      , (lastMay >>> isJustAnd (`notElem` dashOrDot), const MustNotEndSeparator)
-      , (not . isInfixOf "--", const RepeatedSeparators)
-      , (not . isInfixOf "..", const RepeatedSeparators)
-      , (length >>> (<= 50), TooLong . length)
+      [ (not . T.null, const NotEmpty)
+      , (T.all validChar, InvalidChars . T.unpack . T.filter (not . validChar))
+      , (firstChar (`notElem` dashOrDot), const MustNotBeginSeparator)
+      , (lastChar (`notElem` dashOrDot), const MustNotEndSeparator)
+      , (not . T.isInfixOf "--", const RepeatedSeparators)
+      , (not . T.isInfixOf "..", const RepeatedSeparators)
+      , (T.length >>> (<= 50), TooLong . T.length)
       ]
-  isJustAnd = maybe False
-
-headMay :: [a] -> Maybe a
-headMay [] = Nothing
-headMay (x:_) = Just x
-
-lastMay :: [a] -> Maybe a
-lastMay [] = Nothing
-lastMay [x] = Just x
-lastMay (_:xs) = lastMay xs
+  firstChar p str = not (T.null str) && p (T.index str 0)
+  lastChar p = firstChar p . T.reverse
 
 data Author = Author
-  { authorName     :: String
-  , authorEmail    :: Maybe String
-  , authorHomepage :: Maybe String
+  { authorName     :: Text
+  , authorEmail    :: Maybe Text
+  , authorHomepage :: Maybe Text
   }
   deriving (Show, Eq, Ord, Generic)
 
@@ -125,32 +116,32 @@ data ModuleType
 
 instance NFData ModuleType
 
-moduleTypes :: [(String, ModuleType)]
-moduleTypes = map (\t -> (map toLower (show t), t)) [minBound .. maxBound]
+moduleTypes :: [(Text, ModuleType)]
+moduleTypes = map (\t -> (T.toLower (T.pack (show t)), t)) [minBound .. maxBound]
 
 data Repository = Repository
-  { repositoryUrl :: String
-  , repositoryType :: String
+  { repositoryUrl :: Text
+  , repositoryType :: Text
   }
   deriving (Show, Eq, Ord, Generic)
 
 instance NFData Repository
 
 newtype Version
-  = Version { runVersion :: String }
+  = Version { runVersion :: Text }
   deriving (Show, Eq, Ord, Generic)
 
 instance NFData Version
 
 newtype VersionRange
-  = VersionRange { runVersionRange :: String }
+  = VersionRange { runVersionRange :: Text }
   deriving (Show, Eq, Ord, Generic)
 
 instance NFData VersionRange
 
 data BowerError
   = InvalidPackageName PackageNameError
-  | InvalidModuleType String
+  | InvalidModuleType Text
   deriving (Show, Eq, Ord, Generic)
 
 instance NFData BowerError
@@ -159,7 +150,7 @@ showBowerError :: BowerError -> Text
 showBowerError (InvalidPackageName err) =
   "Invalid package name: " <> showPackageNameError err
 showBowerError (InvalidModuleType str) =
-  "Invalid module type: " <> T.pack str <>
+  "Invalid module type: " <> str <>
     ". Must be one of: " <> renderList moduleTypes
   where
   renderList =
@@ -169,7 +160,7 @@ showBowerError (InvalidModuleType str) =
 data PackageNameError
   = NotEmpty
   | TooLong Int
-  | InvalidChars String
+  | InvalidChars [Char]
   | RepeatedSeparators
   | MustNotBeginSeparator
   | MustNotEndSeparator
@@ -184,9 +175,9 @@ showPackageNameError err = case err of
   TooLong x ->
     "Package names must be no more than 50 characters, yours was " <>
       T.pack (show x)
-  InvalidChars str ->
+  InvalidChars chars ->
     "The following characters are not permitted in package names: " <>
-      T.intercalate " " (map T.singleton str)
+      T.intercalate " " (map T.singleton chars)
   RepeatedSeparators ->
     "The substrings \"--\" and \"..\" may not appear in "<>
       "package names"
@@ -208,15 +199,15 @@ decodeFile = fmap (parse asPackageMeta) . B.readFile
 -- | A parser for bower.json files, using the aeson-better-errors package.
 asPackageMeta :: Parse BowerError PackageMeta
 asPackageMeta =
-  PackageMeta <$> key "name" (withString parsePackageName)
-            <*> keyMay "description" asString
+  PackageMeta <$> key "name" (withText parsePackageName)
+            <*> keyMay "description" asText
             <*> keyOrDefault "main"       [] (arrayOrSingle asString)
-            <*> keyOrDefault "moduleType" [] (arrayOrSingle (withString parseModuleType))
-            <*> keyOrDefault "license"    [] (arrayOrSingle asString)
-            <*> keyOrDefault "ignore"     [] (eachInArray asString)
-            <*> keyOrDefault "keywords"   [] (eachInArray asString)
+            <*> keyOrDefault "moduleType" [] (arrayOrSingle (withText parseModuleType))
+            <*> keyOrDefault "license"    [] (arrayOrSingle asText)
+            <*> keyOrDefault "ignore"     [] (eachInArray asText)
+            <*> keyOrDefault "keywords"   [] (eachInArray asText)
             <*> keyOrDefault "authors"    [] (eachInArray asAuthor)
-            <*> keyMay "homepage" asString
+            <*> keyMay "homepage" asText
             <*> keyMay "repository" asRepository
             <*> keyOrDefault "dependencies"    [] (asAssocListOf VersionRange)
             <*> keyOrDefault "devDependencies" [] (asAssocListOf VersionRange)
@@ -229,17 +220,17 @@ asPackageMeta =
     where
     (<|>) p q = catchError p (const q)
 
-  asAssocListOf :: (String -> a) -> Parse BowerError [(PackageName, a)]
+  asAssocListOf :: (Text -> a) -> Parse BowerError [(PackageName, a)]
   asAssocListOf g =
-    eachInObjectWithKey (parsePackageName . T.unpack) (g <$> asString)
+    eachInObjectWithKey parsePackageName (g <$> asText)
 
-parseModuleType :: String -> Either BowerError ModuleType
+parseModuleType :: Text -> Either BowerError ModuleType
 parseModuleType str =
   case lookup str moduleTypes of
     Nothing -> Left (InvalidModuleType str)
     Just mt -> Right mt
 
-parsePackageName :: String -> Either BowerError PackageName
+parsePackageName :: Text -> Either BowerError PackageName
 parsePackageName str =
   case mkPackageName str of
     Left err -> Left (InvalidPackageName err)
@@ -249,16 +240,16 @@ asAuthor :: Parse e Author
 asAuthor = catchError asAuthorString (const asAuthorObject)
 
 asAuthorString :: Parse e Author
-asAuthorString = withString $ \s ->
-  let (email, s1)    = takeDelim "<" ">" (words s)
+asAuthorString = withText $ \s ->
+  let (email, s1)    = takeDelim "<" ">" (T.words s)
       (homepage, s2) = takeDelim "(" ")" s1
-  in pure (Author (unwords s2) email homepage)
+  in pure (Author (T.unwords s2) email homepage)
 
 -- | Given a prefix and a suffix, go through the supplied list, attempting
 -- to extract one string from the list which has the given prefix and suffix,
 -- All other strings in the list are returned as the second component of the
 -- tuple.
-takeDelim :: String -> String -> [String] -> (Maybe String, [String])
+takeDelim :: Text -> Text -> [Text] -> (Maybe Text, [Text])
 takeDelim start end = foldr go (Nothing, [])
   where
   go str (Just x, strs) =
@@ -269,23 +260,23 @@ takeDelim start end = foldr go (Nothing, [])
       Nothing   -> (Nothing, str : strs)
 
 -- | Like stripPrefix, but strips a suffix as well.
-stripWrapper :: String -> String -> String -> Maybe String
+stripWrapper :: Text -> Text -> Text -> Maybe Text
 stripWrapper start end =
-  stripPrefix start
-    >>> fmap reverse
-    >=> stripPrefix (reverse end)
-    >>> fmap reverse
+  T.stripPrefix start
+    >>> fmap T.reverse
+    >=> T.stripPrefix (T.reverse end)
+    >>> fmap T.reverse
 
 asAuthorObject :: Parse e Author
 asAuthorObject =
-  Author <$> key "name" asString
-         <*> keyMay "email" asString
-         <*> keyMay "homepage" asString
+  Author <$> key "name" asText
+         <*> keyMay "email" asText
+         <*> keyMay "homepage" asText
 
 asRepository :: Parse e Repository
 asRepository =
-  Repository <$> key "url" asString
-             <*> key "type" asString
+  Repository <$> key "url" asText
+             <*> key "type" asText
 
 ------------------------
 -- Serializing
@@ -310,10 +301,8 @@ instance A.ToJSON PackageMeta where
       ]
 
       where
-      toText = T.pack . runPackageName
-
       assoc :: A.ToJSON a => Text -> [(PackageName, a)] -> [Aeson.Pair]
-      assoc = maybeArrayAssocPair toText
+      assoc = maybeArrayAssocPair runPackageName
 
 instance A.ToJSON PackageName where
   toJSON = A.toJSON . runPackageName
@@ -358,10 +347,10 @@ instance A.FromJSON PackageMeta where
   parseJSON = toAesonParser showBowerError asPackageMeta
 
 instance A.FromJSON PackageName where
-  parseJSON = toAesonParser showBowerError (withString parsePackageName)
+  parseJSON = toAesonParser showBowerError (withText parsePackageName)
 
 instance A.FromJSON ModuleType where
-  parseJSON = toAesonParser showBowerError (withString parseModuleType)
+  parseJSON = toAesonParser showBowerError (withText parseModuleType)
 
 instance A.FromJSON Repository where
   parseJSON = toAesonParser' asRepository
@@ -370,7 +359,7 @@ instance A.FromJSON Author where
   parseJSON = toAesonParser' asAuthor
 
 instance A.FromJSON Version where
-  parseJSON = toAesonParser' (Version <$> asString)
+  parseJSON = toAesonParser' (Version <$> asText)
 
 instance A.FromJSON VersionRange where
-  parseJSON = toAesonParser' (VersionRange <$> asString)
+  parseJSON = toAesonParser' (VersionRange <$> asText)
