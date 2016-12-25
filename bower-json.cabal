@@ -1,5 +1,5 @@
 name:                bower-json
-version:             1.0.0
+version:             1.0.0.1
 synopsis:            Read bower.json from Haskell
 license:             MIT
 license-file:        LICENSE
