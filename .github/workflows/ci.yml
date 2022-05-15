@@ -1,0 +1,23 @@
+on: [push]
+name: build
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc: ['8.10.7', '9.0.2', '9.2.2']
+    name: Build and test (GHC ${{ matrix.ghc }})
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Haskell
+        id: setup
+        uses: haskell/actions/setup@v2
+        with:
+          ghc-version: ${{ matrix.ghc }}
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: "${{ runner.os }}-${{ matrix.ghc }}"
+      - run: cabal test
