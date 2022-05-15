@@ -19,5 +19,5 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.setup.cabal-store }}
-        key: "${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('bower-json.cabal') }}"
+          key: "${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('bower-json.cabal') }}"
       - run: cabal test
