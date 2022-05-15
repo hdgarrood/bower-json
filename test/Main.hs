@@ -5,7 +5,6 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import Control.Monad
-import Data.Monoid
 import Data.Aeson
 import qualified Data.ByteString.Lazy as B
 
