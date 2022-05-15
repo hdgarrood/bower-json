@@ -12,15 +12,11 @@
 
 module Web.Bower.PackageMeta.Internal where
 
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative (pure, (<$>), (<*>))
-#endif
 import Control.Monad
 import Control.Category ((>>>))
 import Control.Monad.Error.Class (MonadError(..))
 import Control.DeepSeq
 import GHC.Generics
-import Data.Monoid
 import Data.Char
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -28,6 +24,7 @@ import qualified Data.ByteString.Lazy as B
 
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Key as A.Key
 import qualified Data.Aeson.Types as Aeson
 import Data.Aeson.BetterErrors (Parse, ParseError, asText, asString, asBool, eachInArray, eachInObjectWithKey, withText, key, keyMay, keyOrDefault, toAesonParser', toAesonParser, displayError, parse)
 
@@ -301,8 +298,8 @@ instance A.ToJSON PackageMeta where
       ]
 
       where
-      assoc :: A.ToJSON a => Text -> [(PackageName, a)] -> [Aeson.Pair]
-      assoc = maybeArrayAssocPair runPackageName
+      assoc :: A.ToJSON a => A.Key -> [(PackageName, a)] -> [Aeson.Pair]
+      assoc = maybeArrayAssocPair (A.Key.fromText . runPackageName)
 
 instance A.ToJSON PackageName where
   toJSON = A.toJSON . runPackageName
@@ -329,14 +326,14 @@ instance A.ToJSON Version where
 instance A.ToJSON VersionRange where
   toJSON = A.toJSON . runVersionRange
 
-maybePair :: A.ToJSON a => Text -> Maybe a -> [Aeson.Pair]
+maybePair :: A.ToJSON a => A.Key -> Maybe a -> [Aeson.Pair]
 maybePair k = maybe [] (\val -> [k .= val])
 
-maybeArrayPair :: A.ToJSON a => Text -> [a] -> [Aeson.Pair]
+maybeArrayPair :: A.ToJSON a => A.Key -> [a] -> [Aeson.Pair]
 maybeArrayPair _   [] = []
 maybeArrayPair k xs = [k .= xs]
 
-maybeArrayAssocPair :: A.ToJSON b => (a -> Text) -> Text -> [(a,b)] -> [Aeson.Pair]
+maybeArrayAssocPair :: A.ToJSON b => (a -> A.Key) -> A.Key -> [(a,b)] -> [Aeson.Pair]
 maybeArrayAssocPair _ _   [] = []
 maybeArrayAssocPair f k xs = [k .= A.object (map (\(k', v) -> f k' .= v) xs)]
 

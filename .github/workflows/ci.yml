@@ -7,7 +7,7 @@ jobs:
       fail-fast: false
       matrix:
         ghc: ['8.10.7', '9.0.2', '9.2.2']
-    name: Build (GHC ${{ matrix.ghc }})
+    name: Build and test (GHC ${{ matrix.ghc }})
     steps:
       - uses: actions/checkout@v3
       - name: Setup Haskell

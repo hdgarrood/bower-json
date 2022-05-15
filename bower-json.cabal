@@ -26,9 +26,9 @@ source-repository head
 library
   exposed-modules:   Web.Bower.PackageMeta
   other-modules:     Web.Bower.PackageMeta.Internal
-  build-depends:     base >=4 && <5
+  build-depends:     base >=4.14.3.0 && <5
                    , ghc-prim
-                   , aeson >=0.6.1.0
+                   , aeson >=2.0.1.0
                    , deepseq
                    , aeson-better-errors >= 0.5
                    , unordered-containers
